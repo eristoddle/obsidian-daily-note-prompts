@@ -31,6 +31,36 @@ npm run build
 npm run dev
 ```
 
+### Release
+
+To create a new release:
+
+```bash
+npm run release 1.0.1
+```
+
+This will:
+1. Update version numbers in `package.json`, `manifest.json`, and `versions.json`
+2. Build the plugin
+3. Run tests (if available)
+4. Commit changes
+5. Create and push a git tag
+6. Trigger GitHub Actions to create the release
+
+### GitHub Actions
+
+The project includes two workflows:
+
+- **CI** (`ci.yml`): Runs on push/PR to main branches, builds and tests the plugin
+- **Release** (`release.yml`): Runs on tag push, builds the plugin and creates a GitHub release with assets
+
+### Manual Installation for Development
+
+1. Clone this repository
+2. Run `npm install` and `npm run build`
+3. Copy `main.js`, `manifest.json`, and `styles.css` to your vault's plugins folder:
+   `.obsidian/plugins/obsidian-daily-prompts/`
+
 ## Installation
 
 1. Download the latest release

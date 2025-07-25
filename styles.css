@@ -1,0 +1,174 @@
+/* Daily Prompts Plugin Styles */
+
+.daily-prompts-container {
+  padding: 1rem;
+}
+
+.daily-prompts-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.daily-prompts-pack {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.daily-prompts-pack-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.daily-prompts-pack-title {
+  font-weight: bold;
+  font-size: 1.1em;
+}
+
+.daily-prompts-pack-type {
+  background: var(--background-modifier-border);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8em;
+}
+
+.daily-prompts-progress {
+  margin-top: 0.5rem;
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+
+.daily-prompts-progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--background-modifier-border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 0.25rem;
+}
+
+.daily-prompts-progress-fill {
+  height: 100%;
+  background: var(--interactive-accent);
+  transition: width 0.3s ease;
+}
+
+.daily-prompts-notification {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.daily-prompts-notification-title {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.daily-prompts-notification-content {
+  margin-bottom: 1rem;
+}
+
+.daily-prompts-notification-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.daily-prompts-modal {
+  max-width: 600px;
+}
+
+.daily-prompts-form-group {
+  margin-bottom: 1rem;
+}
+
+.daily-prompts-form-group label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+}
+
+.daily-prompts-form-group input,
+.daily-prompts-form-group select,
+.daily-prompts-form-group textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.daily-prompts-form-group textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.daily-prompts-prompt-list {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.daily-prompts-prompt-item {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--background-modifier-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.daily-prompts-prompt-item:last-child {
+  border-bottom: none;
+}
+
+.daily-prompts-prompt-content {
+  flex: 1;
+  margin-right: 0.5rem;
+}
+
+.daily-prompts-prompt-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.daily-prompts-button {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  cursor: pointer;
+  font-size: 0.8em;
+}
+
+.daily-prompts-button:hover {
+  background: var(--background-modifier-hover);
+}
+
+.daily-prompts-button.primary {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+.daily-prompts-button.primary:hover {
+  background: var(--interactive-accent-hover);
+}
+
+.daily-prompts-button.danger {
+  background: var(--text-error);
+  color: white;
+  border-color: var(--text-error);
+}
+
+.daily-prompts-button.danger:hover {
+  opacity: 0.8;
+}
