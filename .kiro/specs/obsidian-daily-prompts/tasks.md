@@ -32,20 +32,20 @@
     - Add progress reset and archive functionality
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 4. Implement prompt selection algorithms
-  - [ ] 4.1 Create Sequential mode prompt selection
+- [x] 4. Implement prompt selection algorithms
+  - [x] 4.1 Create Sequential mode prompt selection
     - Implement ordered prompt delivery with index tracking
     - Add completion detection and restart logic
     - Create unit tests for sequential prompt selection
     - _Requirements: 1.3, 5.1, 5.3_
 
-  - [ ] 4.2 Create Random mode prompt selection
+  - [x] 4.2 Create Random mode prompt selection
     - Implement random selection without repetition
     - Add used prompt tracking and cycle reset logic
     - Create unit tests for random prompt selection
     - _Requirements: 1.5, 5.4_
 
-  - [ ] 4.3 Create Date-based prompt selection
+  - [x] 4.3 Create Date-based prompt selection
     - Implement date-based prompt filtering and selection
     - Add timezone handling and date matching logic
     - Create catch-up mechanism for missed dates
