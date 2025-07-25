@@ -1,0 +1,11 @@
+{
+  "id": "obsidian-daily-prompts",
+  "name": "Daily Prompts",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "A flexible system for receiving daily writing prompts, reflections, or devotionals within your Obsidian vault",
+  "author": "Daily Prompts Plugin",
+  "authorUrl": "",
+  "fundingUrl": "",
+  "isDesktopOnly": false
+}
