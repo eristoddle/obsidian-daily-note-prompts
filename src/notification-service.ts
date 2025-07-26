@@ -6,6 +6,7 @@
 import { Notice, Plugin } from 'obsidian';
 import { INotificationService } from './interfaces';
 import { Prompt, PromptPack } from './types';
+import { ErrorHandler, ErrorType, ErrorSeverity } from './error-handler';
 
 interface ScheduledNotification {
   packId: string;
@@ -22,6 +23,7 @@ interface NotificationPermissionState {
 
 export class NotificationService implements INotificationService {
   private plugin: Plugin;
+  private errorHandler?: ErrorHandler;
   private scheduledNotifications: Map<string, ScheduledNotification> = new Map();
   private permissionState: NotificationPermissionState = {
     granted: false,
@@ -31,6 +33,7 @@ export class NotificationService implements INotificationService {
   private checkInterval: NodeJS.Timeout | null = null;
   private readonly CHECK_INTERVAL_MS = 60000; // Check every minute
   private readonly PERMISSION_RECHECK_HOURS = 24; // Recheck permissions every 24 hours
+  private fallbackMode = false; // Track if we're in fallback mode
 
   constructor(plugin: Plugin) {
     this.plugin = plugin;
@@ -39,9 +42,18 @@ export class NotificationService implements INotificationService {
   }
 
   /**
+   * Set the error handler for comprehensive error handling
+   */
+  setErrorHandler(errorHandler: ErrorHandler): void {
+    this.errorHandler = errorHandler;
+  }
+
+  /**
    * Initialize notification permissions and check system capabilities
    */
   private async initializePermissions(): Promise<void> {
+    const context = this.errorHandler?.createContext('permission_initialization', 'notification-service');
+
     try {
       // Check if we're in a browser environment with Notification API
       if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -49,20 +61,39 @@ export class NotificationService implements INotificationService {
 
         if (permission === 'granted') {
           this.permissionState.granted = true;
+          this.fallbackMode = false;
         } else if (permission === 'denied') {
           this.permissionState.granted = false;
           this.permissionState.requested = true;
+          this.fallbackMode = true;
         } else {
           // Permission is 'default', we haven't requested yet
           this.permissionState.granted = false;
           this.permissionState.requested = false;
         }
+      } else {
+        // Notification API not available
+        this.fallbackMode = true;
+        console.log('Daily Prompts: System notifications not supported, using Obsidian notifications only');
       }
 
       this.permissionState.lastChecked = new Date();
     } catch (error) {
+      if (this.errorHandler && context) {
+        try {
+          await this.errorHandler.handleError(error as Error, context, {
+            attemptRecovery: true,
+            notifyUser: false, // Don't notify for permission initialization
+            severity: ErrorSeverity.MEDIUM
+          });
+        } catch (handlerError) {
+          console.warn('Error handler failed during permission initialization:', handlerError);
+        }
+      }
+
       console.warn('Daily Prompts: Failed to initialize notification permissions:', error);
       this.permissionState.granted = false;
+      this.fallbackMode = true;
     }
   }
 
@@ -70,19 +101,35 @@ export class NotificationService implements INotificationService {
    * Request system notification permissions if not already granted
    */
   private async requestNotificationPermission(): Promise<boolean> {
+    const context = this.errorHandler?.createContext('permission_request', 'notification-service');
+
     try {
       if (typeof window === 'undefined' || !('Notification' in window)) {
+        this.fallbackMode = true;
         return false;
       }
 
       if (Notification.permission === 'granted') {
         this.permissionState.granted = true;
+        this.fallbackMode = false;
         return true;
       }
 
       if (Notification.permission === 'denied') {
         this.permissionState.granted = false;
         this.permissionState.requested = true;
+        this.fallbackMode = true;
+
+        // Notify user about fallback
+        if (this.errorHandler && context) {
+          const error = new Error('System notifications denied, using Obsidian notifications');
+          await this.errorHandler.handleError(error, context, {
+            attemptRecovery: true,
+            notifyUser: false, // We'll handle notification ourselves
+            severity: ErrorSeverity.LOW
+          });
+        }
+
         return false;
       }
 
@@ -91,10 +138,28 @@ export class NotificationService implements INotificationService {
       this.permissionState.granted = permission === 'granted';
       this.permissionState.requested = true;
       this.permissionState.lastChecked = new Date();
+      this.fallbackMode = !this.permissionState.granted;
+
+      if (!this.permissionState.granted) {
+        console.log('Daily Prompts: System notification permission denied, falling back to Obsidian notifications');
+      }
 
       return this.permissionState.granted;
     } catch (error) {
+      if (this.errorHandler && context) {
+        try {
+          await this.errorHandler.handleError(error as Error, context, {
+            attemptRecovery: true,
+            notifyUser: false,
+            severity: ErrorSeverity.MEDIUM
+          });
+        } catch (handlerError) {
+          console.warn('Error handler failed during permission request:', handlerError);
+        }
+      }
+
       console.warn('Daily Prompts: Failed to request notification permission:', error);
+      this.fallbackMode = true;
       return false;
     }
   }
@@ -250,12 +315,45 @@ export class NotificationService implements INotificationService {
    * Show a notification using the appropriate method (system or Obsidian)
    */
   showNotification(prompt: Prompt, pack: PromptPack): void {
-    const notificationType = pack.settings.notificationType;
+    const context = this.errorHandler?.createContext('show_notification', 'notification-service', { packId: pack.id });
 
-    if (notificationType === 'system' && this.canShowSystemNotifications()) {
-      this.showSystemNotification(prompt, pack);
-    } else {
-      this.showObsidianNotification(prompt, pack);
+    try {
+      const notificationType = pack.settings.notificationType;
+
+      // Check if system notifications are requested and available
+      if (notificationType === 'system' && this.canShowSystemNotifications()) {
+        this.showSystemNotification(prompt, pack);
+      } else {
+        // Fall back to Obsidian notifications
+        if (notificationType === 'system' && !this.canShowSystemNotifications()) {
+          console.log(`Daily Prompts: System notifications not available for pack "${pack.name}", using Obsidian notifications`);
+        }
+        this.showObsidianNotification(prompt, pack);
+      }
+    } catch (error) {
+      if (this.errorHandler && context) {
+        this.errorHandler.handleError(error as Error, context, {
+          attemptRecovery: true,
+          notifyUser: true,
+          severity: ErrorSeverity.MEDIUM
+        }).catch(handlerError => {
+          console.warn('Error handler failed during notification display:', handlerError);
+          // Final fallback - try basic Obsidian notification
+          try {
+            new Notice(`Daily Prompts: ${pack.name} - ${prompt.content.substring(0, 100)}...`);
+          } catch (fallbackError) {
+            console.error('All notification methods failed:', fallbackError);
+          }
+        });
+      } else {
+        console.error('Daily Prompts: Failed to show notification:', error);
+        // Final fallback
+        try {
+          new Notice(`Daily Prompts: ${pack.name} - ${prompt.content.substring(0, 100)}...`);
+        } catch (fallbackError) {
+          console.error('All notification methods failed:', fallbackError);
+        }
+      }
     }
   }
 
@@ -275,7 +373,14 @@ export class NotificationService implements INotificationService {
    * Show a system notification using the browser's Notification API
    */
   private showSystemNotification(prompt: Prompt, pack: PromptPack): void {
+    const context = this.errorHandler?.createContext('system_notification', 'notification-service', { packId: pack.id });
+
     try {
+      // Double-check permissions before creating notification
+      if (!this.canShowSystemNotifications()) {
+        throw new Error('System notifications not available');
+      }
+
       const title = `Daily Prompt: ${pack.name}`;
       const body = this.formatPromptForNotification(prompt);
       const icon = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJMMTMuMDkgOC4yNkwyMCA5TDEzLjA5IDE1Ljc0TDEyIDIyTDEwLjkxIDE1Ljc0TDQgOUwxMC45MSA4LjI2TDEyIDJaIiBmaWxsPSIjNjY2NjY2Ii8+Cjwvc3ZnPgo=';
@@ -307,16 +412,41 @@ export class NotificationService implements INotificationService {
         });
       }
 
+      // Handle notification errors
+      notification.onerror = (error) => {
+        console.warn('Daily Prompts: System notification error:', error);
+        this.fallbackMode = true;
+        this.showObsidianNotification(prompt, pack);
+      };
+
       // Auto-close after 30 seconds if not interacted with
       setTimeout(() => {
-        notification.close();
+        try {
+          notification.close();
+        } catch (closeError) {
+          // Ignore close errors
+        }
       }, 30000);
 
       console.log(`Daily Prompts: Showed system notification for pack "${pack.name}"`);
     } catch (error) {
-      console.error('Daily Prompts: Failed to show system notification:', error);
-      // Fallback to Obsidian notification
-      this.showObsidianNotification(prompt, pack);
+      if (this.errorHandler && context) {
+        this.errorHandler.handleError(error as Error, context, {
+          attemptRecovery: true,
+          notifyUser: false, // We'll handle the fallback silently
+          severity: ErrorSeverity.MEDIUM
+        }).then(() => {
+          // Recovery successful, try Obsidian notification
+          this.showObsidianNotification(prompt, pack);
+        }).catch(handlerError => {
+          console.warn('Error handler failed for system notification:', handlerError);
+          this.showObsidianNotification(prompt, pack);
+        });
+      } else {
+        console.error('Daily Prompts: Failed to show system notification:', error);
+        // Fallback to Obsidian notification
+        this.showObsidianNotification(prompt, pack);
+      }
     }
   }
 
@@ -324,6 +454,8 @@ export class NotificationService implements INotificationService {
    * Show an Obsidian Notice notification
    */
   private showObsidianNotification(prompt: Prompt, pack: PromptPack): void {
+    const context = this.errorHandler?.createContext('obsidian_notification', 'notification-service', { packId: pack.id });
+
     try {
       const message = `📝 Daily Prompt: ${pack.name}\n\n${this.formatPromptForNotification(prompt)}`;
 
@@ -331,50 +463,83 @@ export class NotificationService implements INotificationService {
 
       // Create clickable notice by adding event listener to the notice element
       const noticeEl = notice.noticeEl;
-      noticeEl.style.cursor = 'pointer';
-      noticeEl.style.userSelect = 'none';
 
-      // Add click handler
-      const clickHandler = () => {
-        this.handleNotificationClick(prompt, pack);
-        notice.hide();
-        noticeEl.removeEventListener('click', clickHandler);
-      };
+      if (noticeEl) {
+        noticeEl.style.cursor = 'pointer';
+        noticeEl.style.userSelect = 'none';
 
-      noticeEl.addEventListener('click', clickHandler);
+        // Add click handler
+        const clickHandler = () => {
+          try {
+            this.handleNotificationClick(prompt, pack);
+            notice.hide();
+            noticeEl.removeEventListener('click', clickHandler);
+          } catch (clickError) {
+            console.error('Daily Prompts: Error handling notification click:', clickError);
+          }
+        };
 
-      // Add dismiss button
-      const dismissButton = noticeEl.createEl('button', {
-        text: '✕',
-        cls: 'daily-prompts-dismiss-btn'
-      });
-      dismissButton.style.cssText = `
-        position: absolute;
-        top: 5px;
-        right: 5px;
-        background: none;
-        border: none;
-        font-size: 16px;
-        cursor: pointer;
-        opacity: 0.7;
-        padding: 2px 6px;
-      `;
+        noticeEl.addEventListener('click', clickHandler);
 
-      dismissButton.addEventListener('click', (e) => {
-        e.stopPropagation();
-        notice.hide();
-      });
+        // Add dismiss button
+        try {
+          const dismissButton = noticeEl.createEl('button', {
+            text: '✕',
+            cls: 'daily-prompts-dismiss-btn'
+          });
+          dismissButton.style.cssText = `
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            opacity: 0.7;
+            padding: 2px 6px;
+          `;
 
-      // Auto-dismiss after 30 seconds
-      setTimeout(() => {
-        if (notice.noticeEl.parentNode) {
-          notice.hide();
+          dismissButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            notice.hide();
+          });
+        } catch (buttonError) {
+          console.warn('Daily Prompts: Failed to add dismiss button:', buttonError);
+          // Continue without dismiss button
         }
-      }, 30000);
+
+        // Auto-dismiss after 30 seconds
+        setTimeout(() => {
+          try {
+            if (notice.noticeEl && notice.noticeEl.parentNode) {
+              notice.hide();
+            }
+          } catch (dismissError) {
+            // Ignore dismiss errors
+          }
+        }, 30000);
+      }
 
       console.log(`Daily Prompts: Showed Obsidian notification for pack "${pack.name}"`);
     } catch (error) {
-      console.error('Daily Prompts: Failed to show Obsidian notification:', error);
+      if (this.errorHandler && context) {
+        this.errorHandler.handleError(error as Error, context, {
+          attemptRecovery: false, // No recovery for basic notification failure
+          notifyUser: true,
+          severity: ErrorSeverity.HIGH
+        }).catch(handlerError => {
+          console.warn('Error handler failed for Obsidian notification:', handlerError);
+        });
+      } else {
+        console.error('Daily Prompts: Failed to show Obsidian notification:', error);
+
+        // Final fallback - basic notice without enhancements
+        try {
+          new Notice(`Daily Prompts: ${pack.name} - Check console for details`, 10000);
+        } catch (fallbackError) {
+          console.error('All notification methods failed:', fallbackError);
+        }
+      }
     }
   }
 

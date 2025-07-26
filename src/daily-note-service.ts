@@ -6,6 +6,7 @@
 import { App, TFile, Vault, Workspace, moment, normalizePath } from 'obsidian';
 import { IDailyNoteService } from './interfaces';
 import { Prompt, GlobalSettings } from './types';
+import { ErrorHandler, ErrorType, ErrorSeverity } from './error-handler';
 
 /**
  * Service for managing daily note integration and zen mode
@@ -15,6 +16,7 @@ export class DailyNoteService implements IDailyNoteService {
   private vault: Vault;
   private workspace: Workspace;
   private globalSettings: GlobalSettings;
+  private errorHandler?: ErrorHandler;
   private zenModeState: {
     isActive: boolean;
     previousState: {
@@ -23,6 +25,7 @@ export class DailyNoteService implements IDailyNoteService {
       statusBarVisible: boolean;
     };
   };
+  private fallbackMode = false; // Track if we're using fallback methods
 
   constructor(app: App, globalSettings: GlobalSettings) {
     this.app = app;
@@ -40,22 +43,50 @@ export class DailyNoteService implements IDailyNoteService {
   }
 
   /**
+   * Set the error handler for comprehensive error handling
+   */
+  setErrorHandler(errorHandler: ErrorHandler): void {
+    this.errorHandler = errorHandler;
+  }
+
+  /**
    * Create or open the daily note for the specified date
    * Integrates with Obsidian's daily notes plugin when available
    */
   async createOrOpenDailyNote(date?: Date): Promise<TFile> {
     const targetDate = date || new Date();
+    const context = this.errorHandler?.createContext('daily_note_creation', 'daily-note-service', { date: targetDate });
 
     try {
       // First, try to use the daily notes plugin if available
-      const dailyNotesPlugin = this.getDailyNotesPlugin();
-      if (dailyNotesPlugin) {
-        return await this.createOrOpenWithDailyNotesPlugin(targetDate, dailyNotesPlugin);
+      if (!this.fallbackMode) {
+        const dailyNotesPlugin = this.getDailyNotesPlugin();
+        if (dailyNotesPlugin) {
+          return await this.createOrOpenWithDailyNotesPlugin(targetDate, dailyNotesPlugin);
+        }
       }
 
       // Fallback to manual daily note creation
       return await this.createOrOpenManually(targetDate);
     } catch (error) {
+      if (this.errorHandler && context) {
+        try {
+          const result = await this.errorHandler.handleError(error as Error, context, {
+            attemptRecovery: true,
+            notifyUser: true,
+            severity: ErrorSeverity.HIGH
+          });
+
+          // If recovery provided alternative method, use it
+          if (result && result.useManualNoteCreation) {
+            this.fallbackMode = true;
+            return await this.createOrOpenManually(targetDate);
+          }
+        } catch (handlerError) {
+          console.warn('Error handler failed for daily note creation:', handlerError);
+        }
+      }
+
       console.error('Error creating/opening daily note:', error);
       // Final fallback - create a basic daily note
       return await this.createBasicDailyNote(targetDate);
@@ -66,6 +97,11 @@ export class DailyNoteService implements IDailyNoteService {
    * Insert a prompt into the specified daily note file
    */
   async insertPrompt(prompt: Prompt, file: TFile): Promise<void> {
+    const context = this.errorHandler?.createContext('prompt_insertion', 'daily-note-service', {
+      promptId: prompt.id,
+      fileName: file.name
+    });
+
     try {
       const content = await this.vault.read(file);
       const formattedPrompt = this.formatPrompt(prompt);
@@ -80,8 +116,20 @@ export class DailyNoteService implements IDailyNoteService {
       // Position cursor after the inserted prompt if possible
       this.positionCursorAfterPrompt(file, formattedPrompt);
     } catch (error) {
+      if (this.errorHandler && context) {
+        try {
+          await this.errorHandler.handleError(error as Error, context, {
+            attemptRecovery: true,
+            notifyUser: true,
+            severity: ErrorSeverity.HIGH
+          });
+        } catch (handlerError) {
+          console.warn('Error handler failed for prompt insertion:', handlerError);
+        }
+      }
+
       console.error('Error inserting prompt into daily note:', error);
-      throw new Error(`Failed to insert prompt: ${error.message}`);
+      throw new Error(`Failed to insert prompt: ${(error as Error).message}`);
     }
   }
 
@@ -93,6 +141,8 @@ export class DailyNoteService implements IDailyNoteService {
       return; // Already in zen mode
     }
 
+    const context = this.errorHandler?.createContext('zen_mode_enable', 'daily-note-service');
+
     try {
       // Store current state
       this.zenModeState.previousState = {
@@ -101,19 +151,50 @@ export class DailyNoteService implements IDailyNoteService {
         statusBarVisible: document.body.classList.contains('hide-status-bar') === false
       };
 
-      // Hide UI elements
-      this.workspace.leftSplit.collapse();
-      this.workspace.rightSplit.collapse();
+      // Hide UI elements with error handling for each step
+      try {
+        this.workspace.leftSplit.collapse();
+      } catch (leftSplitError) {
+        console.warn('Failed to collapse left split:', leftSplitError);
+      }
+
+      try {
+        this.workspace.rightSplit.collapse();
+      } catch (rightSplitError) {
+        console.warn('Failed to collapse right split:', rightSplitError);
+      }
 
       // Hide status bar by adding CSS class
-      document.body.classList.add('daily-prompts-zen-mode');
+      try {
+        document.body.classList.add('daily-prompts-zen-mode');
+      } catch (cssError) {
+        console.warn('Failed to add zen mode CSS class:', cssError);
+      }
 
       // Add custom CSS for zen mode
-      this.addZenModeStyles();
+      try {
+        this.addZenModeStyles();
+      } catch (styleError) {
+        console.warn('Failed to add zen mode styles:', styleError);
+      }
 
       this.zenModeState.isActive = true;
     } catch (error) {
-      console.error('Error enabling zen mode:', error);
+      if (this.errorHandler && context) {
+        this.errorHandler.handleError(error as Error, context, {
+          attemptRecovery: true,
+          notifyUser: false, // Zen mode failure is not critical
+          severity: ErrorSeverity.LOW
+        }).then(result => {
+          if (result && result.skipZenMode) {
+            console.log('Daily Prompts: Zen mode disabled due to API limitations');
+          }
+        }).catch(handlerError => {
+          console.warn('Error handler failed for zen mode enable:', handlerError);
+        });
+      } else {
+        console.error('Error enabling zen mode:', error);
+      }
     }
   }
 
@@ -125,24 +206,56 @@ export class DailyNoteService implements IDailyNoteService {
       return; // Not in zen mode
     }
 
+    const context = this.errorHandler?.createContext('zen_mode_disable', 'daily-note-service');
+
     try {
-      // Restore previous state
-      if (this.zenModeState.previousState.leftSidebarVisible) {
-        this.workspace.leftSplit.expand();
+      // Restore previous state with individual error handling
+      try {
+        if (this.zenModeState.previousState.leftSidebarVisible) {
+          this.workspace.leftSplit.expand();
+        }
+      } catch (leftSplitError) {
+        console.warn('Failed to expand left split:', leftSplitError);
       }
-      if (this.zenModeState.previousState.rightSidebarVisible) {
-        this.workspace.rightSplit.expand();
+
+      try {
+        if (this.zenModeState.previousState.rightSidebarVisible) {
+          this.workspace.rightSplit.expand();
+        }
+      } catch (rightSplitError) {
+        console.warn('Failed to expand right split:', rightSplitError);
       }
 
       // Remove zen mode CSS class
-      document.body.classList.remove('daily-prompts-zen-mode');
+      try {
+        document.body.classList.remove('daily-prompts-zen-mode');
+      } catch (cssError) {
+        console.warn('Failed to remove zen mode CSS class:', cssError);
+      }
 
       // Remove custom zen mode styles
-      this.removeZenModeStyles();
+      try {
+        this.removeZenModeStyles();
+      } catch (styleError) {
+        console.warn('Failed to remove zen mode styles:', styleError);
+      }
 
       this.zenModeState.isActive = false;
     } catch (error) {
-      console.error('Error disabling zen mode:', error);
+      if (this.errorHandler && context) {
+        this.errorHandler.handleError(error as Error, context, {
+          attemptRecovery: false, // Don't attempt recovery for zen mode disable
+          notifyUser: false,
+          severity: ErrorSeverity.LOW
+        }).catch(handlerError => {
+          console.warn('Error handler failed for zen mode disable:', handlerError);
+        });
+      } else {
+        console.error('Error disabling zen mode:', error);
+      }
+
+      // Force reset zen mode state even if errors occurred
+      this.zenModeState.isActive = false;
     }
   }
 
@@ -166,34 +279,98 @@ export class DailyNoteService implements IDailyNoteService {
    * Get the daily notes plugin if available
    */
   private getDailyNotesPlugin(): any {
-    // @ts-ignore - Access internal plugin registry
-    const plugins = this.app.plugins;
-    return plugins.getPlugin('daily-notes') || plugins.plugins['daily-notes'];
+    try {
+      // @ts-ignore - Access internal plugin registry
+      const plugins = this.app.plugins;
+
+      if (!plugins) {
+        return null;
+      }
+
+      // Try different ways to access the daily notes plugin
+      let dailyNotesPlugin = null;
+
+      if (plugins.getPlugin) {
+        dailyNotesPlugin = plugins.getPlugin('daily-notes');
+      }
+
+      if (!dailyNotesPlugin && plugins.plugins) {
+        dailyNotesPlugin = plugins.plugins['daily-notes'];
+      }
+
+      // Check if plugin is enabled
+      if (dailyNotesPlugin && !plugins.enabledPlugins?.has('daily-notes')) {
+        return null;
+      }
+
+      return dailyNotesPlugin;
+    } catch (error) {
+      console.warn('Daily Prompts: Failed to access daily notes plugin:', error);
+      return null;
+    }
   }
 
   /**
    * Create or open daily note using the daily notes plugin
    */
   private async createOrOpenWithDailyNotesPlugin(date: Date, dailyNotesPlugin: any): Promise<TFile> {
+    const context = this.errorHandler?.createContext('daily_notes_plugin_usage', 'daily-note-service', { date });
+
     try {
+      // Validate plugin has required methods
+      if (!dailyNotesPlugin || typeof dailyNotesPlugin !== 'object') {
+        throw new Error('Daily notes plugin is not properly loaded');
+      }
+
       // Use the daily notes plugin API
       const { createDailyNote, getDailyNote, getAllDailyNotes } = dailyNotesPlugin;
 
+      // Check if required methods exist
+      if (!createDailyNote || typeof createDailyNote !== 'function') {
+        throw new Error('Daily notes plugin createDailyNote method not available');
+      }
+
       // Check if note already exists
-      const existingNote = getDailyNote ? getDailyNote(moment(date), getAllDailyNotes()) : null;
-      if (existingNote) {
-        return existingNote;
+      if (getDailyNote && getAllDailyNotes) {
+        try {
+          const allNotes = getAllDailyNotes();
+          const existingNote = getDailyNote(moment(date), allNotes);
+          if (existingNote && existingNote instanceof TFile) {
+            return existingNote;
+          }
+        } catch (existingNoteError) {
+          console.warn('Failed to check for existing daily note:', existingNoteError);
+          // Continue to create new note
+        }
       }
 
       // Create new daily note
-      if (createDailyNote) {
-        return await createDailyNote(moment(date));
+      const newNote = await createDailyNote(moment(date));
+      if (!newNote || !(newNote instanceof TFile)) {
+        throw new Error('Daily notes plugin returned invalid file');
       }
 
-      // Fallback if plugin methods not available
-      return await this.createOrOpenManually(date);
+      return newNote;
     } catch (error) {
+      if (this.errorHandler && context) {
+        try {
+          const result = await this.errorHandler.handleError(error as Error, context, {
+            attemptRecovery: true,
+            notifyUser: false, // We'll fall back silently
+            severity: ErrorSeverity.MEDIUM
+          });
+
+          if (result && result.useManualNoteCreation) {
+            this.fallbackMode = true;
+            return await this.createOrOpenManually(date);
+          }
+        } catch (handlerError) {
+          console.warn('Error handler failed for daily notes plugin usage:', handlerError);
+        }
+      }
+
       console.error('Error using daily notes plugin:', error);
+      this.fallbackMode = true;
       return await this.createOrOpenManually(date);
     }
   }
@@ -202,44 +379,94 @@ export class DailyNoteService implements IDailyNoteService {
    * Create or open daily note manually without plugin
    */
   private async createOrOpenManually(date: Date): Promise<TFile> {
-    const fileName = this.generateDailyNoteFileName(date);
-    const folderPath = this.globalSettings.dailyNoteFolder || '';
-    const fullPath = normalizePath(folderPath ? `${folderPath}/${fileName}` : fileName);
+    const context = this.errorHandler?.createContext('manual_daily_note_creation', 'daily-note-service', { date });
 
-    // Check if file already exists
-    const existingFile = this.vault.getAbstractFileByPath(fullPath);
-    if (existingFile instanceof TFile) {
-      return existingFile;
+    try {
+      const fileName = this.generateDailyNoteFileName(date);
+      const folderPath = this.globalSettings.dailyNoteFolder || '';
+      const fullPath = normalizePath(folderPath ? `${folderPath}/${fileName}` : fileName);
+
+      // Check if file already exists
+      const existingFile = this.vault.getAbstractFileByPath(fullPath);
+      if (existingFile instanceof TFile) {
+        return existingFile;
+      }
+
+      // Create the file
+      const template = this.globalSettings.dailyNoteTemplate || this.getDefaultDailyNoteTemplate();
+      const content = this.processTemplate(template, date);
+
+      // Ensure folder exists
+      if (folderPath) {
+        try {
+          await this.ensureFolderExists(folderPath);
+        } catch (folderError) {
+          console.warn(`Failed to create folder ${folderPath}, using root:`, folderError);
+          // Fall back to root directory
+          const rootFileName = this.generateDailyNoteFileName(date);
+          return await this.vault.create(rootFileName, content);
+        }
+      }
+
+      return await this.vault.create(fullPath, content);
+    } catch (error) {
+      if (this.errorHandler && context) {
+        try {
+          await this.errorHandler.handleError(error as Error, context, {
+            attemptRecovery: true,
+            notifyUser: true,
+            severity: ErrorSeverity.HIGH
+          });
+        } catch (handlerError) {
+          console.warn('Error handler failed for manual daily note creation:', handlerError);
+        }
+      }
+
+      console.error('Error creating daily note manually:', error);
+      // Final fallback
+      return await this.createBasicDailyNote(date);
     }
-
-    // Create the file
-    const template = this.globalSettings.dailyNoteTemplate || this.getDefaultDailyNoteTemplate();
-    const content = this.processTemplate(template, date);
-
-    // Ensure folder exists
-    if (folderPath) {
-      await this.ensureFolderExists(folderPath);
-    }
-
-    return await this.vault.create(fullPath, content);
   }
 
   /**
    * Create a basic daily note as final fallback
    */
   private async createBasicDailyNote(date: Date): Promise<TFile> {
-    const fileName = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}.md`;
-    const content = `# ${this.formatDateForTitle(date)}\n\n`;
+    const context = this.errorHandler?.createContext('basic_daily_note_creation', 'daily-note-service', { date });
 
     try {
-      return await this.vault.create(fileName, content);
-    } catch (error) {
-      // If file exists, return it
-      const existingFile = this.vault.getAbstractFileByPath(fileName);
-      if (existingFile instanceof TFile) {
-        return existingFile;
+      const fileName = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}.md`;
+      const content = `# ${this.formatDateForTitle(date)}\n\n`;
+
+      try {
+        return await this.vault.create(fileName, content);
+      } catch (createError) {
+        // If file exists, return it
+        const existingFile = this.vault.getAbstractFileByPath(fileName);
+        if (existingFile instanceof TFile) {
+          return existingFile;
+        }
+
+        // Try with a unique suffix
+        const timestamp = Date.now();
+        const uniqueFileName = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}-${timestamp}.md`;
+        return await this.vault.create(uniqueFileName, content);
       }
-      throw error;
+    } catch (error) {
+      if (this.errorHandler && context) {
+        try {
+          await this.errorHandler.handleError(error as Error, context, {
+            attemptRecovery: false, // This is the final fallback
+            notifyUser: true,
+            severity: ErrorSeverity.CRITICAL
+          });
+        } catch (handlerError) {
+          console.warn('Error handler failed for basic daily note creation:', handlerError);
+        }
+      }
+
+      console.error('Failed to create basic daily note:', error);
+      throw new Error(`Unable to create daily note: ${(error as Error).message}`);
     }
   }
 
@@ -321,11 +548,16 @@ export class DailyNoteService implements IDailyNoteService {
    * Ensure folder exists, create if necessary
    */
   private async ensureFolderExists(folderPath: string): Promise<void> {
-    const normalizedPath = normalizePath(folderPath);
-    const folder = this.vault.getAbstractFileByPath(normalizedPath);
+    try {
+      const normalizedPath = normalizePath(folderPath);
+      const folder = this.vault.getAbstractFileByPath(normalizedPath);
 
-    if (!folder) {
-      await this.vault.createFolder(normalizedPath);
+      if (!folder) {
+        await this.vault.createFolder(normalizedPath);
+      }
+    } catch (error) {
+      console.error(`Failed to ensure folder exists: ${folderPath}`, error);
+      throw new Error(`Cannot create folder ${folderPath}: ${(error as Error).message}`);
     }
   }
 

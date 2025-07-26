@@ -5,6 +5,7 @@
 
 import { Plugin, TFile, TFolder } from 'obsidian';
 import { PluginSettings, PromptPack, ValidationError } from './models';
+import { ErrorHandler, ErrorType, ErrorSeverity } from './error-handler';
 
 export interface BackupMetadata {
   timestamp: string;
@@ -26,6 +27,7 @@ export interface StorageOptions {
  */
 export class StorageManager {
   private plugin: Plugin;
+  private errorHandler?: ErrorHandler;
   private readonly BACKUP_FOLDER = '.obsidian/plugins/daily-prompts/backups';
   private readonly PROGRESS_FOLDER = '.obsidian/plugins/daily-prompts/progress';
   private readonly MAX_BACKUPS = 10;
@@ -33,6 +35,13 @@ export class StorageManager {
 
   constructor(plugin: Plugin) {
     this.plugin = plugin;
+  }
+
+  /**
+   * Set the error handler for comprehensive error handling
+   */
+  setErrorHandler(errorHandler: ErrorHandler): void {
+    this.errorHandler = errorHandler;
   }
 
   /**
@@ -46,6 +55,7 @@ export class StorageManager {
       maxRetries = 3
     } = options;
 
+    const context = this.errorHandler?.createContext('data_saving', 'storage-manager', data);
     let attempt = 0;
     let lastError: Error | null = null;
 
@@ -69,6 +79,19 @@ export class StorageManager {
         lastError = error as Error;
         attempt++;
 
+        // Use error handler for recovery if available
+        if (this.errorHandler && context && attempt === 1) {
+          try {
+            await this.errorHandler.handleError(lastError, context, {
+              attemptRecovery: false, // Don't recover on save, just notify
+              notifyUser: attempt >= maxRetries,
+              severity: ErrorSeverity.HIGH
+            });
+          } catch (handlerError) {
+            console.warn('Error handler failed during save:', handlerError);
+          }
+        }
+
         if (!retryOnFailure || attempt >= maxRetries) {
           break;
         }
@@ -78,13 +101,30 @@ export class StorageManager {
       }
     }
 
-    throw new ValidationError(`Failed to save data after ${maxRetries} attempts: ${lastError?.message}`);
+    const finalError = new ValidationError(`Failed to save data after ${maxRetries} attempts: ${lastError?.message}`);
+
+    // Final error notification through error handler
+    if (this.errorHandler && context) {
+      try {
+        await this.errorHandler.handleError(finalError, context, {
+          attemptRecovery: false,
+          notifyUser: true,
+          severity: ErrorSeverity.CRITICAL
+        });
+      } catch (handlerError) {
+        console.warn('Error handler failed for final save error:', handlerError);
+      }
+    }
+
+    throw finalError;
   }
 
   /**
    * Load plugin data with validation and migration
    */
   async loadData(): Promise<any> {
+    const context = this.errorHandler?.createContext('data_loading', 'storage-manager');
+
     try {
       const data = await this.plugin.loadData();
 
@@ -101,6 +141,21 @@ export class StorageManager {
       return migratedData;
 
     } catch (error) {
+      if (this.errorHandler && context) {
+        try {
+          // Attempt recovery through error handler
+          return await this.errorHandler.handleError(error as Error, context, {
+            attemptRecovery: true,
+            notifyUser: true,
+            severity: ErrorSeverity.CRITICAL
+          });
+        } catch (handlerError) {
+          // If error handler fails, fall back to original recovery logic
+          console.error('Error handler failed, using fallback recovery:', handlerError);
+        }
+      }
+
+      // Fallback recovery logic
       console.error('Failed to load data:', error);
 
       // Try to recover from backup
@@ -110,7 +165,7 @@ export class StorageManager {
         return recoveredData;
       }
 
-      throw new ValidationError(`Failed to load data and recovery failed: ${error.message}`);
+      throw new ValidationError(`Failed to load data and recovery failed: ${(error as Error).message}`);
     }
   }
 
