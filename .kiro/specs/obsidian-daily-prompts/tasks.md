@@ -102,20 +102,20 @@
     - Create zen mode restoration when prompt session ends
     - _Requirements: 4.3, 6.3_
 
-- [ ] 8. Implement import/export functionality
-  - [ ] 8.1 Create JSON serialization system
+- [x] 8. Implement import/export functionality
+  - [x] 8.1 Create JSON serialization system
     - Implement prompt pack export to JSON format
     - Add metadata and version information to exports
     - Create data validation for export integrity
     - _Requirements: 2.1, 2.4_
 
-  - [ ] 8.2 Create JSON import system
+  - [x] 8.2 Create JSON import system
     - Implement JSON prompt pack import with validation
     - Add conflict resolution for duplicate pack names
     - Create import error handling and user feedback
     - _Requirements: 2.2, 2.3_
 
-  - [ ] 8.3 Add import/export file operations
+  - [x] 8.3 Add import/export file operations
     - Implement file picker integration for import/export
     - Add batch export functionality for multiple packs
     - Create import/export progress feedback for large files
