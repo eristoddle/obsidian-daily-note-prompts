@@ -35,6 +35,15 @@ export class NotificationService implements INotificationService {
   private readonly PERMISSION_RECHECK_HOURS = 24; // Recheck permissions every 24 hours
   private fallbackMode = false; // Track if we're in fallback mode
 
+  // Performance optimizations
+  private notificationQueue: Array<{ prompt: Prompt; pack: PromptPack; priority: number }> = [];
+  private isProcessingQueue = false;
+  private readonly MAX_QUEUE_SIZE = 10;
+  private lastPerformanceCheck = 0;
+  private readonly PERFORMANCE_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+  private notificationCache: Map<string, { notification: any; timestamp: number }> = new Map();
+  private readonly NOTIFICATION_CACHE_TTL = 30000; // 30 seconds
+
   constructor(plugin: Plugin) {
     this.plugin = plugin;
     this.initializePermissions();
@@ -312,24 +321,145 @@ export class NotificationService implements INotificationService {
   }
 
   /**
-   * Show a notification using the appropriate method (system or Obsidian)
+   * Show a notification using the appropriate method (system or Obsidian) with queueing
    */
   showNotification(prompt: Prompt, pack: PromptPack): void {
+    // Add to queue with priority (higher priority = more urgent)
+    const priority = this.calculateNotificationPriority(prompt, pack);
+
+    this.addToNotificationQueue(prompt, pack, priority);
+    this.processNotificationQueue();
+  }
+
+  /**
+   * Calculate notification priority based on various factors
+   */
+  private calculateNotificationPriority(prompt: Prompt, pack: PromptPack): number {
+    let priority = 1; // Base priority
+
+    // Higher priority for date-based prompts that are time-sensitive
+    if (pack.type === 'Date') {
+      priority += 2;
+    }
+
+    // Higher priority for packs with zen mode (user likely wants immediate attention)
+    if (pack.settings.zenModeEnabled) {
+      priority += 1;
+    }
+
+    // Lower priority if we've shown many notifications recently
+    const recentNotifications = Array.from(this.notificationCache.values())
+      .filter(entry => Date.now() - entry.timestamp < 60000); // Last minute
+
+    if (recentNotifications.length > 3) {
+      priority -= 1;
+    }
+
+    return Math.max(1, priority);
+  }
+
+  /**
+   * Add notification to queue with deduplication
+   */
+  private addToNotificationQueue(prompt: Prompt, pack: PromptPack, priority: number): void {
+    // Check for duplicate notifications
+    const isDuplicate = this.notificationQueue.some(item =>
+      item.pack.id === pack.id && item.prompt.id === prompt.id
+    );
+
+    if (isDuplicate) {
+      return; // Skip duplicate
+    }
+
+    // Add to queue
+    this.notificationQueue.push({ prompt, pack, priority });
+
+    // Sort by priority (highest first)
+    this.notificationQueue.sort((a, b) => b.priority - a.priority);
+
+    // Limit queue size
+    if (this.notificationQueue.length > this.MAX_QUEUE_SIZE) {
+      this.notificationQueue = this.notificationQueue.slice(0, this.MAX_QUEUE_SIZE);
+    }
+  }
+
+  /**
+   * Process notification queue
+   */
+  private async processNotificationQueue(): Promise<void> {
+    if (this.isProcessingQueue || this.notificationQueue.length === 0) {
+      return;
+    }
+
+    this.isProcessingQueue = true;
+
+    try {
+      while (this.notificationQueue.length > 0) {
+        const { prompt, pack } = this.notificationQueue.shift()!;
+
+        // Check if we should throttle notifications
+        if (this.shouldThrottleNotification(pack)) {
+          // Re-queue with lower priority
+          this.addToNotificationQueue(prompt, pack, 0);
+          break;
+        }
+
+        await this.showNotificationImmediate(prompt, pack);
+
+        // Small delay between notifications to avoid overwhelming user
+        await this.delay(500);
+      }
+    } finally {
+      this.isProcessingQueue = false;
+    }
+  }
+
+  /**
+   * Check if we should throttle notifications for a pack
+   */
+  private shouldThrottleNotification(pack: PromptPack): boolean {
+    const cacheKey = `throttle-${pack.id}`;
+    const cached = this.notificationCache.get(cacheKey);
+
+    if (cached && Date.now() - cached.timestamp < 30000) { // 30 second throttle
+      return true;
+    }
+
+    // Update throttle cache
+    this.notificationCache.set(cacheKey, {
+      notification: null,
+      timestamp: Date.now()
+    });
+
+    return false;
+  }
+
+  /**
+   * Show notification immediately (internal method)
+   */
+  private async showNotificationImmediate(prompt: Prompt, pack: PromptPack): Promise<void> {
     const context = this.errorHandler?.createContext('show_notification', 'notification-service', { packId: pack.id });
 
     try {
       const notificationType = pack.settings.notificationType;
 
+      // Check performance and adjust behavior
+      this.checkPerformanceAndOptimize();
+
       // Check if system notifications are requested and available
       if (notificationType === 'system' && this.canShowSystemNotifications()) {
-        this.showSystemNotification(prompt, pack);
+        await this.showSystemNotificationOptimized(prompt, pack);
       } else {
         // Fall back to Obsidian notifications
         if (notificationType === 'system' && !this.canShowSystemNotifications()) {
           console.log(`Daily Prompts: System notifications not available for pack "${pack.name}", using Obsidian notifications`);
         }
-        this.showObsidianNotification(prompt, pack);
+        this.showObsidianNotificationOptimized(prompt, pack);
       }
+
+      // Cache the notification
+      this.cacheNotification(pack.id, prompt);
+
     } catch (error) {
       if (this.errorHandler && context) {
         this.errorHandler.handleError(error as Error, context, {
@@ -338,23 +468,104 @@ export class NotificationService implements INotificationService {
           severity: ErrorSeverity.MEDIUM
         }).catch(handlerError => {
           console.warn('Error handler failed during notification display:', handlerError);
-          // Final fallback - try basic Obsidian notification
-          try {
-            new Notice(`Daily Prompts: ${pack.name} - ${prompt.content.substring(0, 100)}...`);
-          } catch (fallbackError) {
-            console.error('All notification methods failed:', fallbackError);
-          }
+          this.showFallbackNotification(prompt, pack);
         });
       } else {
         console.error('Daily Prompts: Failed to show notification:', error);
-        // Final fallback
-        try {
-          new Notice(`Daily Prompts: ${pack.name} - ${prompt.content.substring(0, 100)}...`);
-        } catch (fallbackError) {
-          console.error('All notification methods failed:', fallbackError);
-        }
+        this.showFallbackNotification(prompt, pack);
       }
     }
+  }
+
+  /**
+   * Show fallback notification
+   */
+  private showFallbackNotification(prompt: Prompt, pack: PromptPack): void {
+    try {
+      new Notice(`Daily Prompts: ${pack.name} - ${prompt.content.substring(0, 100)}...`);
+    } catch (fallbackError) {
+      console.error('All notification methods failed:', fallbackError);
+    }
+  }
+
+  /**
+   * Cache notification for deduplication and throttling
+   */
+  private cacheNotification(packId: string, prompt: Prompt): void {
+    const cacheKey = `notification-${packId}-${prompt.id}`;
+    this.notificationCache.set(cacheKey, {
+      notification: { packId, promptId: prompt.id },
+      timestamp: Date.now()
+    });
+
+    // Clean up old cache entries
+    this.cleanupNotificationCache();
+  }
+
+  /**
+   * Clean up old notification cache entries
+   */
+  private cleanupNotificationCache(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.notificationCache.entries()) {
+      if (now - entry.timestamp > this.NOTIFICATION_CACHE_TTL) {
+        this.notificationCache.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Check performance and optimize notification behavior
+   */
+  private checkPerformanceAndOptimize(): void {
+    const now = Date.now();
+    if (now - this.lastPerformanceCheck < this.PERFORMANCE_CHECK_INTERVAL) {
+      return;
+    }
+
+    this.lastPerformanceCheck = now;
+
+    // Check queue size and adjust behavior
+    if (this.notificationQueue.length > this.MAX_QUEUE_SIZE * 0.8) {
+      console.log('Daily Prompts: High notification queue, optimizing...');
+      // Could implement additional optimizations here
+    }
+
+    // Clean up cache
+    this.cleanupNotificationCache();
+  }
+
+  /**
+   * Optimized system notification with caching
+   */
+  private async showSystemNotificationOptimized(prompt: Prompt, pack: PromptPack): Promise<void> {
+    // Check cache to avoid duplicate notifications
+    const cacheKey = `system-${pack.id}-${prompt.id}`;
+    if (this.notificationCache.has(cacheKey)) {
+      return; // Already shown recently
+    }
+
+    return this.showSystemNotification(prompt, pack);
+  }
+
+  /**
+   * Optimized Obsidian notification with caching
+   */
+  private showObsidianNotificationOptimized(prompt: Prompt, pack: PromptPack): void {
+    // Check cache to avoid duplicate notifications
+    const cacheKey = `obsidian-${pack.id}-${prompt.id}`;
+    if (this.notificationCache.has(cacheKey)) {
+      return; // Already shown recently
+    }
+
+    this.showObsidianNotification(prompt, pack);
+  }
+
+  /**
+   * Utility delay function
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**

@@ -18,6 +18,10 @@ export interface IPromptSelector {
  * Sequential prompt selector - delivers prompts in defined order
  */
 export class SequentialPromptSelector implements IPromptSelector {
+  // Performance optimization: Cache sorted prompts
+  private sortedPromptsCache: Map<string, { prompts: Prompt[]; timestamp: number }> = new Map();
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
   /**
    * Select the next prompt in sequential order
    */
@@ -30,12 +34,8 @@ export class SequentialPromptSelector implements IPromptSelector {
       return null;
     }
 
-    // Sort prompts by order (if defined) or by array index
-    const sortedPrompts = [...pack.prompts].sort((a, b) => {
-      const orderA = a.order ?? pack.prompts.indexOf(a);
-      const orderB = b.order ?? pack.prompts.indexOf(b);
-      return orderA - orderB;
-    });
+    // Performance optimization: Use cached sorted prompts
+    const sortedPrompts = this.getSortedPrompts(pack);
 
     // Initialize current index if not set
     if (pack.progress.currentIndex === undefined) {
@@ -53,6 +53,48 @@ export class SequentialPromptSelector implements IPromptSelector {
 
     // All prompts completed
     return null;
+  }
+
+  /**
+   * Get sorted prompts with caching
+   */
+  private getSortedPrompts(pack: PromptPack): Prompt[] {
+    const cacheKey = `${pack.id}-${pack.updatedAt?.getTime() || 0}`;
+    const cached = this.sortedPromptsCache.get(cacheKey);
+
+    if (cached && (Date.now() - cached.timestamp) < this.CACHE_TTL) {
+      return cached.prompts;
+    }
+
+    // Sort prompts by order (if defined) or by array index
+    const sortedPrompts = [...pack.prompts].sort((a, b) => {
+      const orderA = a.order ?? pack.prompts.indexOf(a);
+      const orderB = b.order ?? pack.prompts.indexOf(b);
+      return orderA - orderB;
+    });
+
+    // Cache the result
+    this.sortedPromptsCache.set(cacheKey, {
+      prompts: sortedPrompts,
+      timestamp: Date.now()
+    });
+
+    // Clean up old cache entries
+    this.cleanupCache();
+
+    return sortedPrompts;
+  }
+
+  /**
+   * Clean up old cache entries
+   */
+  private cleanupCache(): void {
+    const now = Date.now();
+    for (const [key, value] of this.sortedPromptsCache.entries()) {
+      if (now - value.timestamp > this.CACHE_TTL) {
+        this.sortedPromptsCache.delete(key);
+      }
+    }
   }
 
   /**

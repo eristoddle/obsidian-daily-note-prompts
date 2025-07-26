@@ -3,9 +3,19 @@
   "name": "Daily Prompts",
   "version": "1.0.0",
   "minAppVersion": "0.15.0",
-  "description": "A flexible system for receiving daily writing prompts, reflections, or devotionals within your Obsidian vault",
+  "description": "A flexible system for receiving daily writing prompts, reflections, or devotionals within your Obsidian vault. Supports multiple prompt delivery modes (sequential, random, date-based), customizable notifications, and seamless integration with daily notes.",
   "author": "Daily Prompts Plugin",
-  "authorUrl": "",
-  "fundingUrl": "",
-  "isDesktopOnly": false
+  "authorUrl": "https://github.com/obsidian-daily-prompts/obsidian-daily-prompts",
+  "fundingUrl": "https://github.com/sponsors/obsidian-daily-prompts",
+  "isDesktopOnly": false,
+  "keywords": [
+    "daily",
+    "prompts",
+    "writing",
+    "reflection",
+    "devotional",
+    "notifications",
+    "productivity",
+    "journaling"
+  ]
 }

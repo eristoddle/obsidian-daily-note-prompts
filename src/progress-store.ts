@@ -38,6 +38,15 @@ export class ProgressStore implements IProgressStore {
   private readonly PROGRESS_FOLDER = '.obsidian/plugins/daily-prompts/progress';
   private readonly ARCHIVE_FOLDER = '.obsidian/plugins/daily-prompts/archives';
 
+  // Performance optimizations
+  private batchUpdateQueue: Map<string, PromptProgress> = new Map();
+  private batchUpdateTimer: NodeJS.Timeout | null = null;
+  private readonly BATCH_UPDATE_DELAY = 2000; // 2 seconds
+  private readonly MAX_BATCH_SIZE = 20;
+  private fileWritePromises: Map<string, Promise<void>> = new Map();
+  private lastCleanupTime = 0;
+  private readonly CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
   constructor(plugin: Plugin, storageManager: StorageManager) {
     this.plugin = plugin;
     this.storageManager = storageManager;
@@ -60,21 +69,141 @@ export class ProgressStore implements IProgressStore {
   }
 
   /**
-   * Update progress for a specific prompt pack
+   * Update progress for a specific prompt pack with batching
    */
   async updateProgress(packId: string, progress: PromptProgress): Promise<void> {
     try {
       // Validate progress data
       progress.validate();
 
-      // Update cache
+      // Update cache immediately
       this.progressCache.set(packId, progress);
 
-      // Persist to storage
-      await this.saveProgressToFile(packId, progress);
+      // Add to batch update queue
+      this.batchUpdateQueue.set(packId, progress);
+
+      // Schedule batch processing
+      this.scheduleBatchUpdate();
+
+      // Perform cleanup if needed
+      this.performPeriodicCleanup();
 
     } catch (error) {
       throw new ValidationError(`Failed to update progress for pack ${packId}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Schedule batch update processing
+   */
+  private scheduleBatchUpdate(): void {
+    // Clear existing timer
+    if (this.batchUpdateTimer) {
+      clearTimeout(this.batchUpdateTimer);
+    }
+
+    // Process immediately if batch is full
+    if (this.batchUpdateQueue.size >= this.MAX_BATCH_SIZE) {
+      this.processBatchUpdates();
+      return;
+    }
+
+    // Schedule delayed processing
+    this.batchUpdateTimer = setTimeout(() => {
+      this.processBatchUpdates();
+    }, this.BATCH_UPDATE_DELAY);
+  }
+
+  /**
+   * Process all queued batch updates
+   */
+  private async processBatchUpdates(): Promise<void> {
+    if (this.batchUpdateQueue.size === 0) {
+      return;
+    }
+
+    const updates = Array.from(this.batchUpdateQueue.entries());
+    this.batchUpdateQueue.clear();
+
+    // Clear timer
+    if (this.batchUpdateTimer) {
+      clearTimeout(this.batchUpdateTimer);
+      this.batchUpdateTimer = null;
+    }
+
+    // Process updates in parallel with concurrency limit
+    const concurrencyLimit = 5;
+    const chunks = this.chunkArray(updates, concurrencyLimit);
+
+    for (const chunk of chunks) {
+      const promises = chunk.map(([packId, progress]) =>
+        this.saveProgressToFileWithDeduplication(packId, progress)
+      );
+
+      try {
+        await Promise.all(promises);
+      } catch (error) {
+        console.error('Failed to process batch updates:', error);
+        // Re-queue failed updates
+        chunk.forEach(([packId, progress]) => {
+          this.batchUpdateQueue.set(packId, progress);
+        });
+      }
+    }
+  }
+
+  /**
+   * Save progress to file with write deduplication
+   */
+  private async saveProgressToFileWithDeduplication(packId: string, progress: PromptProgress): Promise<void> {
+    // Check if there's already a write in progress for this pack
+    const existingPromise = this.fileWritePromises.get(packId);
+    if (existingPromise) {
+      await existingPromise;
+    }
+
+    // Create new write promise
+    const writePromise = this.saveProgressToFile(packId, progress);
+    this.fileWritePromises.set(packId, writePromise);
+
+    try {
+      await writePromise;
+    } finally {
+      this.fileWritePromises.delete(packId);
+    }
+  }
+
+  /**
+   * Chunk array into smaller arrays
+   */
+  private chunkArray<T>(array: T[], chunkSize: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += chunkSize) {
+      chunks.push(array.slice(i, i + chunkSize));
+    }
+    return chunks;
+  }
+
+  /**
+   * Perform periodic cleanup operations
+   */
+  private performPeriodicCleanup(): void {
+    const now = Date.now();
+    if (now - this.lastCleanupTime < this.CLEANUP_INTERVAL) {
+      return;
+    }
+
+    this.lastCleanupTime = now;
+
+    // Clean up old cache entries (keep only recently accessed)
+    const cutoffTime = now - (24 * 60 * 60 * 1000); // 24 hours ago
+    for (const [packId, progress] of this.progressCache.entries()) {
+      if (progress.lastAccessDate.getTime() < cutoffTime) {
+        // Only remove from cache if not in batch queue
+        if (!this.batchUpdateQueue.has(packId)) {
+          this.progressCache.delete(packId);
+        }
+      }
     }
   }
 

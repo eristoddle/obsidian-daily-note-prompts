@@ -100,6 +100,13 @@ export class ImportExportService implements IImportExportService {
   private readonly PLUGIN_NAME = 'Daily Prompts Plugin';
   private vault: Vault;
 
+  // Performance optimizations
+  private validationCache: Map<string, { result: ValidationResult; timestamp: number }> = new Map();
+  private readonly VALIDATION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private readonly MAX_VALIDATION_CACHE_SIZE = 20;
+  private streamingThreshold = 1024 * 1024; // 1MB - use streaming for larger files
+  private compressionThreshold = 10 * 1024; // 10KB - compress exports larger than this
+
   constructor(vault: Vault) {
     this.vault = vault;
   }
@@ -178,19 +185,69 @@ export class ImportExportService implements IImportExportService {
   }
 
   /**
-   * Get detailed validation results
+   * Get detailed validation results with caching
    */
   getValidationResults(jsonData: string): ValidationResult {
+    // Create cache key from data hash
+    const cacheKey = this.hashString(jsonData);
+    const cached = this.validationCache.get(cacheKey);
+
+    if (cached && Date.now() - cached.timestamp < this.VALIDATION_CACHE_TTL) {
+      return cached.result;
+    }
+
     try {
       const parsedData = this.parseJsonData(jsonData);
-      return this.validateImportData(parsedData);
+      const result = this.validateImportData(parsedData);
+
+      // Cache the result
+      this.cacheValidationResult(cacheKey, result);
+
+      return result;
     } catch (error) {
-      return {
+      const result = {
         isValid: false,
         errors: [`JSON parsing failed: ${error.message}`],
         warnings: []
       };
+
+      // Cache error results too (with shorter TTL)
+      this.cacheValidationResult(cacheKey, result, this.VALIDATION_CACHE_TTL / 5);
+
+      return result;
     }
+  }
+
+  /**
+   * Cache validation result with size management
+   */
+  private cacheValidationResult(key: string, result: ValidationResult, ttl?: number): void {
+    // Manage cache size
+    if (this.validationCache.size >= this.MAX_VALIDATION_CACHE_SIZE) {
+      // Remove oldest entries
+      const entries = Array.from(this.validationCache.entries());
+      entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+      const toRemove = entries.slice(0, Math.floor(this.MAX_VALIDATION_CACHE_SIZE * 0.2));
+      toRemove.forEach(([key]) => this.validationCache.delete(key));
+    }
+
+    this.validationCache.set(key, {
+      result,
+      timestamp: Date.now()
+    });
+  }
+
+  /**
+   * Generate hash for string (simple hash function)
+   */
+  private hashString(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return hash.toString();
   }
 
   /**

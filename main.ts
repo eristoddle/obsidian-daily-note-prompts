@@ -9,6 +9,8 @@ import { ProgressStore } from './src/progress-store';
 import { StorageManager } from './src/storage-manager';
 import { PromptPackModal } from './src/prompt-pack-modal';
 import { DailyPromptsSettingsTab } from './src/settings-tab';
+import { performanceMonitor } from './src/performance-monitor';
+import { ErrorHandler } from './src/error-handler';
 
 export default class DailyPromptsPlugin extends Plugin {
   // Core services
@@ -19,6 +21,7 @@ export default class DailyPromptsPlugin extends Plugin {
   notificationService: NotificationService;
   progressStore: ProgressStore;
   storageManager: StorageManager;
+  errorHandler: ErrorHandler;
 
   // Plugin state
   private isInitialized: boolean = false;
@@ -68,14 +71,24 @@ export default class DailyPromptsPlugin extends Plugin {
       // Initialize storage manager
       this.storageManager = new StorageManager(this);
 
+      // Initialize error handler (depends on storage manager)
+      this.errorHandler = new ErrorHandler(this, this.storageManager);
+
+      // Set error handler for storage manager
+      this.storageManager.setErrorHandler(this.errorHandler);
+
       // Initialize progress store (depends on storage manager)
       this.progressStore = new ProgressStore(this, this.storageManager);
+
+      // Start performance monitoring
+      performanceMonitor.startMonitoring();
 
       // Initialize prompt service (depends on progress store)
       this.promptService = new PromptService(this.progressStore);
 
       // Initialize notification service (depends on plugin instance)
       this.notificationService = new NotificationService(this);
+      this.notificationService.setErrorHandler(this.errorHandler);
 
       // Initialize import/export service (depends on vault)
       this.importExportService = new ImportExportService(this.app.vault);
@@ -408,6 +421,9 @@ If the problem persists, please report this issue.
       // Clear timers
       this.clearAllTimers();
 
+      // Stop performance monitoring
+      performanceMonitor.stopMonitoring();
+
       console.log('Daily Prompts: Graceful shutdown completed');
     } catch (error) {
       console.error('Daily Prompts: Error during graceful shutdown:', error);
@@ -522,6 +538,45 @@ If the problem persists, please report this issue.
       id: 'show-plugin-health',
       name: 'Show Plugin Health Status',
       callback: () => this.showPluginHealthStatus()
+    });
+
+    // Performance monitoring commands
+    this.addCommand({
+      id: 'show-performance-report',
+      name: 'Show Performance Report',
+      callback: () => this.showPerformanceReport()
+    });
+
+    this.addCommand({
+      id: 'optimize-performance',
+      name: 'Optimize Performance',
+      callback: () => this.optimizePerformance()
+    });
+
+    // Error handling and recovery commands
+    this.addCommand({
+      id: 'show-error-report',
+      name: 'Show Error Report',
+      callback: () => this.showErrorReport()
+    });
+
+    this.addCommand({
+      id: 'clear-error-history',
+      name: 'Clear Error History',
+      callback: () => this.clearErrorHistory()
+    });
+
+    // Data management commands
+    this.addCommand({
+      id: 'backup-data',
+      name: 'Create Data Backup',
+      callback: () => this.createDataBackup()
+    });
+
+    this.addCommand({
+      id: 'validate-data',
+      name: 'Validate Plugin Data',
+      callback: () => this.validatePluginData()
     });
   }
 
@@ -912,6 +967,354 @@ Statistics:
       `.trim();
 
       new Notice(statusMessage, 10000);
+      console.log('Daily Prompts Health Status:', health);
+    } catch (error) {
+      console.error('Failed to show plugin health status:', error);
+      new Notice(`Failed to show plugin health status: ${error.message}`);
+    }
+  }
+
+  /**
+   * Show performance report
+   */
+  private showPerformanceReport() {
+    try {
+      const report = performanceMonitor.generateReport();
+      console.log('Daily Prompts Performance Report:\n', report);
+
+      const metrics = performanceMonitor.getMetrics();
+      const recommendations = performanceMonitor.getRecommendations();
+
+      let message = `Performance Report:
+Memory: ${(metrics.memoryUsage / 1024 / 1024).toFixed(1)}MB
+Cache Hit Rate: ${(metrics.cacheHitRate * 100).toFixed(1)}%
+Avg Response: ${metrics.averageResponseTime.toFixed(0)}ms`;
+
+      if (recommendations.length > 0) {
+        message += `\n\nRecommendations: ${recommendations.length} items (see console)`;
+      }
+
+      new Notice(message, 8000);
+    } catch (error) {
+      console.error('Failed to show performance report:', error);
+      new Notice(`Failed to show performance report: ${error.message}`);
+    }
+  }
+
+  /**
+   * Optimize performance based on current conditions
+   */
+  private async optimizePerformance() {
+    try {
+      const startTime = Date.now();
+
+      // Clear caches
+      if (this.storageManager) {
+        this.storageManager.clearCache();
+      }
+
+      if (this.promptService) {
+        this.promptService.clearCaches();
+      }
+
+      // Preload frequently accessed data
+      if (this.storageManager) {
+        await this.storageManager.preloadFrequentData();
+      }
+
+      // Flush any pending operations
+      if (this.progressStore) {
+        // Force flush any pending batch updates
+        await this.progressStore.saveAllProgress();
+      }
+
+      const duration = Date.now() - startTime;
+      performanceMonitor.recordOperation('manual_optimization', startTime);
+
+      new Notice(`Performance optimization completed in ${duration}ms`);
+    } catch (error) {
+      console.error('Failed to optimize performance:', error);
+      new Notice(`Failed to optimize performance: ${error.message}`);
+    }
+  }
+
+  /**
+   * Show comprehensive error report
+   */
+  private showErrorReport() {
+    try {
+      if (!this.errorHandler) {
+        new Notice('Error handler not available');
+        return;
+      }
+
+      const stats = this.errorHandler.getErrorStats();
+      const recentErrors = this.errorHandler.getErrorHistory().slice(0, 5);
+
+      let report = `Error Report:
+Total Errors: ${stats.total}
+Recovery Rate: ${stats.recoveryRate.toFixed(1)}%
+
+By Severity:
+- Critical: ${stats.bySeverity.CRITICAL || 0}
+- High: ${stats.bySeverity.HIGH || 0}
+- Medium: ${stats.bySeverity.MEDIUM || 0}
+- Low: ${stats.bySeverity.LOW || 0}`;
+
+      if (recentErrors.length > 0) {
+        report += `\n\nRecent Errors (${recentErrors.length}):`;
+        recentErrors.forEach((error, index) => {
+          report += `\n${index + 1}. ${error.type} - ${error.message.substring(0, 50)}...`;
+        });
+      }
+
+      console.log('Daily Prompts Error Report:\n', report);
+      console.log('Detailed Error History:', this.errorHandler.getErrorHistory());
+
+      new Notice(`Error Report generated (${stats.total} total errors). Check console for details.`, 8000);
+    } catch (error) {
+      console.error('Failed to generate error report:', error);
+      new Notice(`Failed to generate error report: ${error.message}`);
+    }
+  }
+
+  /**
+   * Clear error history
+   */
+  private clearErrorHistory() {
+    try {
+      if (!this.errorHandler) {
+        new Notice('Error handler not available');
+        return;
+      }
+
+      this.errorHandler.clearErrorHistory();
+      new Notice('Error history cleared');
+    } catch (error) {
+      console.error('Failed to clear error history:', error);
+      new Notice(`Failed to clear error history: ${error.message}`);
+    }
+  }
+
+  /**
+   * Create manual data backup
+   */
+  private async createDataBackup() {
+    try {
+      if (!this.storageManager) {
+        new Notice('Storage manager not available');
+        return;
+      }
+
+      const backupId = await this.storageManager.createManualBackup('Manual backup via command');
+      new Notice(`Data backup created: ${backupId}`);
+    } catch (error) {
+      console.error('Failed to create data backup:', error);
+      new Notice(`Failed to create data backup: ${error.message}`);
+    }
+  }
+
+  /**
+   * Validate plugin data integrity
+   */
+  private async validatePluginData() {
+    try {
+      if (!this.isPluginInitialized()) {
+        new Notice('Plugin not properly initialized');
+        return;
+      }
+
+      const startTime = Date.now();
+      let issues: string[] = [];
+
+      // Validate settings
+      try {
+        const settings = this.getSettings();
+        if (!settings.promptPacks || !Array.isArray(settings.promptPacks)) {
+          issues.push('Invalid prompt packs structure');
+        }
+
+        if (!settings.globalSettings || typeof settings.globalSettings !== 'object') {
+          issues.push('Invalid global settings structure');
+        }
+
+        // Validate each prompt pack
+        settings.promptPacks.forEach((pack, index) => {
+          try {
+            pack.validate();
+          } catch (error) {
+            issues.push(`Pack ${index + 1} (${pack.name}): ${error.message}`);
+          }
+        });
+      } catch (error) {
+        issues.push(`Settings validation failed: ${error.message}`);
+      }
+
+      // Validate service states
+      if (this.promptService && !this.promptService.validateState()) {
+        issues.push('Prompt service state validation failed');
+      }
+
+      // Check storage integrity
+      try {
+        const storageStats = await this.storageManager.getStorageStats();
+        if (storageStats.dataSize === 0) {
+          issues.push('No data found in storage');
+        }
+      } catch (error) {
+        issues.push(`Storage validation failed: ${error.message}`);
+      }
+
+      const duration = Date.now() - startTime;
+
+      if (issues.length === 0) {
+        new Notice(`Data validation completed successfully in ${duration}ms`);
+      } else {
+        const message = `Data validation found ${issues.length} issues:\n${issues.slice(0, 3).join('\n')}${issues.length > 3 ? '\n...' : ''}`;
+        new Notice(message, 10000);
+        console.log('Daily Prompts Data Validation Issues:', issues);
+      }
+
+    } catch (error) {
+      console.error('Failed to validate plugin data:', error);
+      new Notice(`Failed to validate plugin data: ${error.message}`);
+    }
+  }
+
+  /**
+   * Enhanced plugin health status with more comprehensive checks
+   */
+  getPluginHealth(): {
+    initialized: boolean;
+    error: string | null;
+    services: {
+      settingsManager: boolean;
+      promptService: boolean;
+      dailyNoteService: boolean;
+      notificationService: boolean;
+      importExportService: boolean;
+      progressStore: boolean;
+      storageManager: boolean;
+      errorHandler: boolean;
+    };
+    stats: any;
+    performance: any;
+    errors: any;
+  } {
+    try {
+      const services = {
+        settingsManager: !!this.settingsManager,
+        promptService: !!this.promptService,
+        dailyNoteService: !!this.dailyNoteService,
+        notificationService: !!this.notificationService,
+        importExportService: !!this.importExportService,
+        progressStore: !!this.progressStore,
+        storageManager: !!this.storageManager,
+        errorHandler: !!this.errorHandler
+      };
+
+      let stats = null;
+      if (this.settingsManager && this.isInitialized) {
+        try {
+          stats = this.settingsManager.getSettingsStats();
+        } catch (error) {
+          stats = { error: error.message };
+        }
+      }
+
+      // Get performance metrics
+      let performance = null;
+      try {
+        performance = {
+          monitor: performanceMonitor.getMetrics(),
+          storage: this.storageManager?.getPerformanceMetrics(),
+          promptService: this.promptService?.getCacheStats()
+        };
+      } catch (error) {
+        performance = { error: error.message };
+      }
+
+      // Get error statistics
+      let errors = null;
+      if (this.errorHandler) {
+        try {
+          errors = this.errorHandler.getErrorStats();
+        } catch (error) {
+          errors = { error: error.message };
+        }
+      }
+
+      return {
+        initialized: this.isInitialized,
+        error: this.initializationError?.message || null,
+        services,
+        stats,
+        performance,
+        errors
+      };
+    } catch (error) {
+      return {
+        initialized: false,
+        error: `Failed to get health status: ${error.message}`,
+        services: {
+          settingsManager: false,
+          promptService: false,
+          dailyNoteService: false,
+          notificationService: false,
+          importExportService: false,
+          progressStore: false,
+          storageManager: false,
+          errorHandler: false
+        },
+        stats: null,
+        performance: null,
+        errors: null
+      };
+    }
+  }
+
+  /**
+   * Enhanced plugin health status display
+   */
+  private showPluginHealthStatus() {
+    try {
+      const health = this.getPluginHealth();
+
+      const serviceStatus = Object.entries(health.services)
+        .map(([name, status]) => `- ${name}: ${status ? '✅' : '❌'}`)
+        .join('\n');
+
+      let statusMessage = `Daily Prompts Plugin Health Status:
+
+Initialized: ${health.initialized ? '✅' : '❌'}
+Error: ${health.error || 'None'}
+
+Services:
+${serviceStatus}`;
+
+      if (health.stats) {
+        statusMessage += `\n\nStatistics:
+- Total Packs: ${health.stats.totalPacks || 0}
+- Total Prompts: ${health.stats.totalPrompts || 0}
+- Completed Prompts: ${health.stats.completedPrompts || 0}
+- Overall Progress: ${health.stats.overallProgress || 0}%`;
+      }
+
+      if (health.performance?.monitor) {
+        const perf = health.performance.monitor;
+        statusMessage += `\n\nPerformance:
+- Memory Usage: ${(perf.memoryUsage / 1024 / 1024).toFixed(1)}MB
+- Cache Hit Rate: ${(perf.cacheHitRate * 100).toFixed(1)}%
+- Avg Response: ${perf.averageResponseTime.toFixed(0)}ms`;
+      }
+
+      if (health.errors) {
+        statusMessage += `\n\nErrors:
+- Total: ${health.errors.total}
+- Recovery Rate: ${health.errors.recoveryRate.toFixed(1)}%`;
+      }
+
+      new Notice(statusMessage, 15000);
       console.log('Daily Prompts Health Status:', health);
     } catch (error) {
       console.error('Failed to show plugin health status:', error);
