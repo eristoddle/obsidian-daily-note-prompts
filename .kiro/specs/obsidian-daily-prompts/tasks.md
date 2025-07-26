@@ -51,14 +51,14 @@
     - Create catch-up mechanism for missed dates
     - _Requirements: 1.4, 5.5_
 
-- [ ] 5. Implement core prompt service
-  - [ ] 5.1 Create PromptService class
+- [x] 5. Implement core prompt service
+  - [x] 5.1 Create PromptService class
     - Implement IPromptService interface with all prompt selection modes
     - Add prompt completion tracking and progress updates
     - Create methods for getting next prompt and managing state
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 5.1_
 
-  - [ ] 5.2 Add prompt service unit tests
+  - [x] 5.2 Add prompt service unit tests
     - Write comprehensive tests for all prompt selection modes
     - Test progress tracking and state management
     - Add edge case testing for empty packs and completion scenarios
