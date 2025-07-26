@@ -83,20 +83,20 @@
     - Create missed notification detection and recovery
     - _Requirements: 3.4, 3.5_
 
-- [ ] 7. Implement daily note integration
-  - [ ] 7.1 Create daily note service
+- [x] 7. Implement daily note integration
+  - [x] 7.1 Create daily note service
     - Implement daily note creation and opening logic
     - Add integration with Obsidian's daily notes plugin
     - Create fallback note creation when daily notes plugin unavailable
     - _Requirements: 4.1_
 
-  - [ ] 7.2 Implement prompt insertion system
+  - [x] 7.2 Implement prompt insertion system
     - Create prompt formatting for different types (link, string, markdown)
     - Add template-based prompt insertion with customization
     - Implement content insertion at appropriate note locations
     - _Requirements: 4.2, 4.4, 4.5, 6.1, 6.5_
 
-  - [ ] 7.3 Add zen mode integration
+  - [x] 7.3 Add zen mode integration
     - Implement zen mode activation using Obsidian workspace API
     - Add configurable UI element hiding
     - Create zen mode restoration when prompt session ends
