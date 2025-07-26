@@ -179,14 +179,14 @@
     - Create user-friendly error messages and recovery options
     - _Requirements: 3.1, 3.2, 4.1, 4.3_
 
-- [ ] 13. Create comprehensive test suite
-  - [ ] 13.1 Write unit tests for core functionality
+- [x] 13. Create comprehensive test suite
+  - [x] 13.1 Write unit tests for core functionality
     - Create tests for all prompt selection algorithms
     - Add tests for data serialization and storage
     - Implement tests for notification scheduling logic
     - _Requirements: 1.3, 1.4, 1.5, 2.1, 2.2, 3.3, 5.1, 5.4_
 
-  - [ ] 13.2 Add integration tests
+  - [x] 13.2 Add integration tests
     - Create end-to-end tests for prompt delivery workflow
     - Add tests for daily note integration
     - Implement tests for import/export round-trip scenarios

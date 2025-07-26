@@ -4,7 +4,14 @@ module.exports = {
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.test.ts'],
   transform: {
-    '^.+\\.ts$': 'ts-jest',
+    '^.+\\.ts$': ['ts-jest', {
+      isolatedModules: true,
+      tsconfig: {
+        noImplicitAny: false,
+        strict: false,
+        esModuleInterop: true
+      }
+    }]
   },
   collectCoverageFrom: [
     'src/**/*.ts',
@@ -12,5 +19,5 @@ module.exports = {
     '!src/__tests__/**',
   ],
   moduleFileExtensions: ['ts', 'js', 'json'],
-  setupFilesAfterEnv: [],
+  setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
 };
