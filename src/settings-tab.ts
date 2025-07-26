@@ -10,7 +10,6 @@ import { PromptPackModal } from './prompt-pack-modal';
 
 export class DailyPromptsSettingsTab extends PluginSettingTab {
   private settingsManager: SettingsManager;
-  private containerEl: HTMLElement;
 
   constructor(app: App, plugin: any, settingsManager: SettingsManager) {
     super(app, plugin);

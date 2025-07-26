@@ -140,14 +140,14 @@
     - Add progress reset and archive options
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 10. Implement command palette integration
-  - [ ] 10.1 Create core plugin commands
+- [x] 10. Implement command palette integration
+  - [x] 10.1 Create core plugin commands
     - Add "Open Today's Prompt" command
     - Implement "Create New Prompt Pack" command
     - Create "Import Prompt Pack" and "Export Prompt Pack" commands
     - _Requirements: 1.1, 2.1, 2.2, 4.1_
 
-  - [ ] 10.2 Add prompt management commands
+  - [x] 10.2 Add prompt management commands
     - Implement "Mark Current Prompt Complete" command
     - Add "Skip to Next Prompt" command
     - Create "Reset Prompt Pack Progress" command
