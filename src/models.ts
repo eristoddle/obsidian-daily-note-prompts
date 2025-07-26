@@ -363,6 +363,7 @@ export class PromptPack implements IPromptPack {
   progress: PromptProgress;
   createdAt: Date;
   updatedAt: Date;
+  metadata?: Record<string, any>;
 
   constructor(data: Partial<IPromptPack> & { name: string; type: PromptPackType }) {
     this.id = data.id || generateId();
@@ -373,6 +374,7 @@ export class PromptPack implements IPromptPack {
     this.progress = data.progress instanceof PromptProgress ? data.progress : new PromptProgress(data.progress);
     this.createdAt = data.createdAt || new Date();
     this.updatedAt = data.updatedAt || new Date();
+    this.metadata = data.metadata || {};
 
     this.validate();
   }
@@ -483,6 +485,11 @@ export class PromptPack implements IPromptPack {
       packData.progress = PromptProgress.fromJSON(packData.progress);
     }
 
+    // Ensure metadata is an object
+    if (!packData.metadata || typeof packData.metadata !== 'object') {
+      packData.metadata = {};
+    }
+
     return new PromptPack(packData);
   }
 
@@ -498,7 +505,8 @@ export class PromptPack implements IPromptPack {
       settings: this.settings.toJSON(),
       progress: this.progress.toJSON(),
       createdAt: this.createdAt.toISOString(),
-      updatedAt: this.updatedAt.toISOString()
+      updatedAt: this.updatedAt.toISOString(),
+      metadata: this.metadata
     };
   }
 

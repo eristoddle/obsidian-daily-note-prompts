@@ -36,6 +36,7 @@ export interface PromptPack {
   progress: PromptProgress;
   createdAt: Date;
   updatedAt: Date;
+  metadata?: Record<string, any>;
 }
 
 export interface GlobalSettings {

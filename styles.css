@@ -172,3 +172,556 @@
 .daily-prompts-button.danger:hover {
   opacity: 0.8;
 }
+
+/* Settings Tab Styles */
+.daily-prompts-settings {
+  max-width: 800px;
+}
+
+.daily-prompts-section {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+}
+
+.daily-prompts-section h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: var(--text-normal);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 0.5rem;
+}
+
+.daily-prompts-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.daily-prompts-section-header h3 {
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+
+.daily-prompts-section-header button {
+  margin-left: 0.5rem;
+}
+
+.daily-prompts-empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-muted);
+}
+
+.daily-prompts-empty-text {
+  font-style: italic;
+}
+
+.daily-prompts-pack-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.daily-prompts-settings-summary {
+  font-size: 0.9em;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
+
+.daily-prompts-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.daily-prompts-stat-card {
+  text-align: center;
+  padding: 1rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+}
+
+.daily-prompts-stat-value {
+  font-size: 2em;
+  font-weight: bold;
+  color: var(--interactive-accent);
+  margin-bottom: 0.25rem;
+}
+
+.daily-prompts-stat-label {
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+
+/* Modal Styles */
+.daily-prompts-modal .modal-content {
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.daily-prompts-form-section {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-secondary);
+}
+
+.daily-prompts-form-section h4 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: var(--text-normal);
+}
+
+.daily-prompts-form-desc {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.daily-prompts-modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+/* Form validation styles */
+.daily-prompts-form-group.error input,
+.daily-prompts-form-group.error select,
+.daily-prompts-form-group.error textarea {
+  border-color: var(--text-error);
+}
+
+.daily-prompts-form-error {
+  color: var(--text-error);
+  font-size: 0.85em;
+  margin-top: 0.25rem;
+}
+
+.daily-prompts-form-success {
+  color: var(--text-success);
+  font-size: 0.85em;
+  margin-top: 0.25rem;
+}
+
+/* Responsive design */
+@media (max-width: 600px) {
+  .daily-prompts-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .daily-prompts-pack-actions {
+    flex-direction: column;
+  }
+
+  .daily-prompts-section-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .daily-prompts-modal-buttons {
+    flex-direction: column;
+  }
+}/*
+Prompt Pack Modal Styles */
+.daily-prompts-pack-modal .modal-content {
+  max-width: 800px;
+  max-height: 90vh;
+}
+
+.daily-prompts-prompts-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  margin-top: 1rem;
+}
+
+.daily-prompts-empty-prompts {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.daily-prompts-prompt-item {
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 1rem;
+  background: var(--background-primary);
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.daily-prompts-prompt-item:last-child {
+  border-bottom: none;
+}
+
+.daily-prompts-prompt-item.daily-prompts-dragging {
+  opacity: 0.5;
+  background: var(--background-modifier-hover);
+}
+
+.daily-prompts-drag-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  font-weight: bold;
+  padding: 0.25rem;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+}
+
+.daily-prompts-drag-handle:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+  border-radius: 4px;
+}
+
+.daily-prompts-drag-handle:active {
+  cursor: grabbing;
+}
+
+.daily-prompts-prompt-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.daily-prompts-prompt-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.daily-prompts-prompt-row label {
+  min-width: 60px;
+  font-weight: 500;
+  color: var(--text-normal);
+}
+
+.daily-prompts-prompt-type-select,
+.daily-prompts-prompt-date {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  min-width: 120px;
+}
+
+.daily-prompts-prompt-content-field {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: var(--font-text);
+  resize: vertical;
+}
+
+.daily-prompts-prompt-content-field:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}
+
+.daily-prompts-prompt-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: flex-end;
+}
+
+.daily-prompts-type-help {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: var(--background-secondary);
+  border-radius: 4px;
+  font-size: 0.9em;
+  color: var(--text-muted);
+  border-left: 3px solid var(--interactive-accent);
+}
+
+/* Drag and drop visual feedback */
+.daily-prompts-prompt-item[draggable="true"]:hover {
+  background: var(--background-modifier-hover);
+}
+
+.daily-prompts-prompts-container .daily-prompts-prompt-item:not(.daily-prompts-dragging) {
+  transition: background-color 0.2s ease;
+}
+
+/* Form validation for prompt pack modal */
+.daily-prompts-prompt-content-field.error {
+  border-color: var(--text-error);
+}
+
+.daily-prompts-prompt-date.error {
+  border-color: var(--text-error);
+}
+
+/* Responsive design for prompt pack modal */
+@media (max-width: 600px) {
+  .daily-prompts-prompt-item {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .daily-prompts-drag-handle {
+    align-self: flex-start;
+  }
+
+  .daily-prompts-prompt-row {
+    flex-wrap: wrap;
+  }
+
+  .daily-prompts-prompt-row label {
+    min-width: auto;
+  }
+
+  .daily-prompts-pack-modal .modal-content {
+    max-width: 95vw;
+  }
+}/*
+Progress Tracking UI Styles */
+.daily-prompts-status-badge {
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75em;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.daily-prompts-status-badge.completed {
+  background: var(--color-green);
+  color: white;
+}
+
+.daily-prompts-status-badge.in-progress {
+  background: var(--color-orange);
+  color: white;
+}
+
+.daily-prompts-progress-section {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: var(--background-secondary);
+  border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.daily-prompts-progress-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.daily-prompts-progress-stat {
+  text-align: center;
+}
+
+.daily-prompts-stat-number {
+  display: block;
+  font-size: 1.2em;
+  font-weight: bold;
+  color: var(--interactive-accent);
+  margin-bottom: 0.25rem;
+}
+
+.daily-prompts-stat-label {
+  font-size: 0.8em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.daily-prompts-current-status {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.daily-prompts-status-text {
+  font-size: 0.9em;
+  color: var(--text-normal);
+}
+
+.daily-prompts-status-text.completed {
+  color: var(--color-green);
+}
+
+/* Progress Modal Styles */
+.daily-prompts-progress-modal .modal-content {
+  max-width: 700px;
+  max-height: 80vh;
+}
+
+.daily-prompts-progress-summary {
+  margin-bottom: 2rem;
+}
+
+.daily-prompts-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.daily-prompts-summary-card {
+  text-align: center;
+  padding: 1rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+}
+
+.daily-prompts-summary-value {
+  font-size: 1.8em;
+  font-weight: bold;
+  color: var(--interactive-accent);
+  margin-bottom: 0.25rem;
+}
+
+.daily-prompts-summary-label {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.daily-prompts-progress-detail {
+  margin-bottom: 2rem;
+}
+
+.daily-prompts-detailed-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  margin-top: 1rem;
+}
+
+.daily-prompts-detailed-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+}
+
+.daily-prompts-detailed-item:last-child {
+  border-bottom: none;
+}
+
+.daily-prompts-detailed-item.completed {
+  background: var(--background-secondary);
+}
+
+.daily-prompts-item-status {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.9em;
+  flex-shrink: 0;
+}
+
+.daily-prompts-detailed-item:not(.completed) .daily-prompts-item-status {
+  color: var(--text-muted);
+  border: 2px solid var(--text-muted);
+}
+
+.daily-prompts-detailed-item.completed .daily-prompts-item-status {
+  color: white;
+  background: var(--color-green);
+}
+
+.daily-prompts-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.daily-prompts-item-order {
+  font-size: 0.8em;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.daily-prompts-item-content {
+  color: var(--text-normal);
+  line-height: 1.4;
+}
+
+.daily-prompts-detailed-item.completed .daily-prompts-item-content {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.daily-prompts-item-type {
+  font-size: 0.75em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+  align-self: flex-start;
+}
+
+.daily-prompts-item-type.type-string {
+  background: var(--color-blue);
+  color: white;
+}
+
+.daily-prompts-item-type.type-markdown {
+  background: var(--color-purple);
+  color: white;
+}
+
+.daily-prompts-item-type.type-link {
+  background: var(--color-orange);
+  color: white;
+}
+
+/* Responsive design for progress tracking */
+@media (max-width: 600px) {
+  .daily-prompts-progress-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .daily-prompts-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .daily-prompts-detailed-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .daily-prompts-item-info {
+    width: 100%;
+  }
+}
