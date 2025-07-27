@@ -137,6 +137,7 @@ export class PromptPackModal extends Modal {
       });
 
     // Notification time
+    let timeValidationTimeout: NodeJS.Timeout;
     new Setting(notificationSection)
       .setName('Notification Time')
       .setDesc('Time to show notifications (24-hour format)')
@@ -145,7 +146,27 @@ export class PromptPackModal extends Modal {
         text
           .setPlaceholder('09:00')
           .setValue(this.pack?.settings.notificationTime || '09:00')
-          .onChange(() => this.validateForm());
+          .onChange(() => {
+            // Clear previous timeout
+            if (timeValidationTimeout) {
+              clearTimeout(timeValidationTimeout);
+            }
+
+            // Debounce validation to allow typing
+            timeValidationTimeout = setTimeout(() => {
+              this.validateForm();
+            }, 500); // 0.5 second delay for form validation
+          });
+
+        // Add blur event listener manually to the input element
+        const inputEl = text.inputEl;
+        inputEl.addEventListener('blur', () => {
+          // Validate immediately on blur
+          if (timeValidationTimeout) {
+            clearTimeout(timeValidationTimeout);
+          }
+          this.validateForm();
+        });
       });
 
     // Notification type
@@ -553,9 +574,13 @@ export class PromptPackModal extends Modal {
       errors.push(`A pack named "${name}" already exists`);
     }
 
-    // Validate notification time format
-    if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(notificationTime)) {
-      errors.push('Notification time must be in HH:MM format (e.g., 09:00)');
+    // Validate notification time format (only if it looks complete)
+    if (notificationTime.trim() !== '' && notificationTime.length >= 4) {
+      if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(notificationTime)) {
+        errors.push('Notification time must be in HH:MM format (e.g., 09:00)');
+      }
+    } else if (notificationTime.trim() === '') {
+      errors.push('Notification time is required');
     }
 
     // Validate prompts

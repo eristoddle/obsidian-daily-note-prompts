@@ -47,6 +47,7 @@ export class DailyPromptsSettingsTab extends PluginSettingTab {
     globalSection.createEl('h3', { text: 'Global Settings' });
 
     // Default notification time
+    let timeValidationTimeout: NodeJS.Timeout;
     new Setting(globalSection)
       .setName('Default notification time')
       .setDesc('Default time for new prompt pack notifications (HH:MM format)')
@@ -55,22 +56,70 @@ export class DailyPromptsSettingsTab extends PluginSettingTab {
           .setPlaceholder('09:00')
           .setValue(globalSettings.defaultNotificationTime)
           .onChange(async (value) => {
-            try {
-              // Validate time format
-              if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
-                throw new Error('Invalid time format. Use HH:MM format.');
-              }
-
-              await this.settingsManager.updateGlobalSettings({
-                defaultNotificationTime: value
-              });
-
-              this.showSuccess('Default notification time updated');
-            } catch (error) {
-              this.showError(`Invalid time format: ${error.message}`);
-              text.setValue(globalSettings.defaultNotificationTime);
+            // Clear previous timeout
+            if (timeValidationTimeout) {
+              clearTimeout(timeValidationTimeout);
             }
+
+            // Debounce validation to allow typing
+            timeValidationTimeout = setTimeout(async () => {
+              try {
+                // Only validate if the field is not empty and looks like it might be complete
+                if (value.trim() === '') {
+                  return; // Allow empty during editing
+                }
+
+                // Validate time format
+                if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
+                  // Don't show error for partial input (like "1" or "14:")
+                  if (value.length >= 4) {
+                    this.showError('Invalid time format. Use HH:MM format (e.g., 09:00)');
+                  }
+                  return;
+                }
+
+                await this.settingsManager.updateGlobalSettings({
+                  defaultNotificationTime: value
+                });
+
+                this.showSuccess('Default notification time updated');
+              } catch (error) {
+                this.showError(`Failed to update time: ${error.message}`);
+              }
+            }, 1000); // 1 second delay
           });
+
+        // Add blur event listener manually to the input element
+        const inputEl = text.inputEl;
+        inputEl.addEventListener('blur', async () => {
+          // Clear any pending timeout
+          if (timeValidationTimeout) {
+            clearTimeout(timeValidationTimeout);
+          }
+
+          // Validate on blur (when user leaves the field)
+          const value = text.getValue();
+          try {
+            if (value.trim() === '') {
+              // Reset to previous value if empty
+              text.setValue(globalSettings.defaultNotificationTime);
+              return;
+            }
+
+            if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
+              this.showError('Invalid time format. Use HH:MM format (e.g., 09:00)');
+              text.setValue(globalSettings.defaultNotificationTime);
+              return;
+            }
+
+            await this.settingsManager.updateGlobalSettings({
+              defaultNotificationTime: value
+            });
+          } catch (error) {
+            this.showError(`Failed to update time: ${error.message}`);
+            text.setValue(globalSettings.defaultNotificationTime);
+          }
+        });
       });
 
     // Default zen mode
