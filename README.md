@@ -182,6 +182,233 @@ September 22: Fall Equinox - What are you ready to release?
 3. **GitHub Issues**: Report bugs at [GitHub repository]
 4. **Community Support**: Ask questions in Obsidian community forums
 
+## 🤖 Creating Prompt Packs Programmatically
+
+You can generate prompt packs using software, AI, or scripts. Here's the data structure and examples:
+
+### Shared Prompt Pack Format
+
+The plugin accepts JSON files in this format for import:
+
+```json
+{
+  "version": "1.0.0",
+  "type": "shared-prompt-pack",
+  "pack": {
+    "name": "Your Pack Name",
+    "type": "Sequential",
+    "prompts": [
+      {
+        "content": "Your prompt text here",
+        "type": "string",
+        "order": 1
+      }
+    ],
+    "defaultSettings": {
+      "notificationEnabled": false,
+      "notificationTime": "09:00",
+      "notificationType": "obsidian",
+      "zenModeEnabled": false,
+      "dailyNoteIntegration": true
+    },
+    "metadata": {
+      "description": "Pack description",
+      "author": "Your Name",
+      "version": "1.0.0",
+      "tags": ["writing", "reflection"],
+      "category": "Personal Development",
+      "promptCount": 30
+    }
+  },
+  "shareMetadata": {
+    "exportedAt": "2024-01-15T10:30:00Z",
+    "exportedBy": "AI Generator v1.0",
+    "exportType": "sharing"
+  }
+}
+```
+
+### Pack Types
+
+#### Sequential Pack
+```json
+{
+  "name": "30-Day Writing Challenge",
+  "type": "Sequential",
+  "prompts": [
+    {
+      "content": "Write about your earliest memory",
+      "type": "string",
+      "order": 1
+    },
+    {
+      "content": "Describe your ideal writing space",
+      "type": "string",
+      "order": 2
+    }
+  ]
+}
+```
+
+#### Random Pack
+```json
+{
+  "name": "Creative Writing Sparks",
+  "type": "Random",
+  "prompts": [
+    {
+      "content": "What if gravity worked differently?",
+      "type": "string"
+    },
+    {
+      "content": "Write from your pet's perspective",
+      "type": "string"
+    }
+  ]
+}
+```
+
+#### Date-based Pack
+```json
+{
+  "name": "Seasonal Reflections",
+  "type": "Date",
+  "prompts": [
+    {
+      "content": "Spring Equinox: What are you ready to grow?",
+      "type": "string",
+      "date": "2024-03-20T00:00:00Z"
+    },
+    {
+      "content": "Summer Solstice: How do you embrace abundance?",
+      "type": "string",
+      "date": "2024-06-21T00:00:00Z"
+    }
+  ]
+}
+```
+
+### Prompt Types
+
+#### String Prompts (Plain Text)
+```json
+{
+  "content": "What are three things you're grateful for today?",
+  "type": "string"
+}
+```
+
+#### Link Prompts (Reference Other Notes)
+```json
+{
+  "content": "[[My Goals]] - Review and update your goals",
+  "type": "link"
+}
+```
+
+#### Markdown Prompts (Rich Formatting)
+```json
+{
+  "content": "# Daily Reflection\n\n**Mood**: How are you feeling?\n\n**Energy**: Rate 1-10\n\n**Focus**: What's your priority today?",
+  "type": "markdown"
+}
+```
+
+### AI Generation Example (Python)
+
+```python
+import json
+from datetime import datetime, timedelta
+
+def generate_prompt_pack(name, prompts, pack_type="Sequential"):
+    pack_data = {
+        "version": "1.0.0",
+        "type": "shared-prompt-pack",
+        "pack": {
+            "name": name,
+            "type": pack_type,
+            "prompts": [],
+            "defaultSettings": {
+                "notificationEnabled": False,
+                "notificationTime": "09:00",
+                "notificationType": "obsidian",
+                "zenModeEnabled": False,
+                "dailyNoteIntegration": True
+            },
+            "metadata": {
+                "description": f"AI-generated {pack_type.lower()} prompt pack",
+                "author": "AI Assistant",
+                "version": "1.0.0",
+                "tags": ["ai-generated", "reflection"],
+                "category": "Personal Development",
+                "promptCount": len(prompts)
+            }
+        },
+        "shareMetadata": {
+            "exportedAt": datetime.now().isoformat() + "Z",
+            "exportedBy": "AI Prompt Generator",
+            "exportType": "sharing"
+        }
+    }
+
+    for i, prompt_text in enumerate(prompts):
+        prompt = {
+            "content": prompt_text,
+            "type": "string"
+        }
+
+        if pack_type == "Sequential":
+            prompt["order"] = i + 1
+        elif pack_type == "Date":
+            # Example: daily prompts starting from today
+            date = datetime.now() + timedelta(days=i)
+            prompt["date"] = date.isoformat() + "Z"
+
+        pack_data["pack"]["prompts"].append(prompt)
+
+    return json.dumps(pack_data, indent=2)
+
+# Example usage
+prompts = [
+    "What are you most excited about today?",
+    "Describe a challenge you overcame recently",
+    "What's one thing you learned this week?",
+    "How can you show kindness to someone today?",
+    "What are you most grateful for right now?"
+]
+
+pack_json = generate_prompt_pack("AI Daily Reflections", prompts, "Sequential")
+with open("ai_daily_reflections_shared.json", "w") as f:
+    f.write(pack_json)
+```
+
+### Validation Rules
+
+- **Pack name**: Required, non-empty string
+- **Pack type**: Must be "Sequential", "Random", or "Date"
+- **Prompts**: At least one prompt required
+- **Prompt content**: Non-empty string
+- **Sequential packs**: Must have `order` field (1, 2, 3...)
+- **Date packs**: Must have `date` field in ISO format
+- **Random packs**: No order or date fields needed
+
+### Import Process
+
+1. Save your generated JSON as `pack_name_shared.json`
+2. In Obsidian: Settings → Daily Prompts → Import
+3. Select your JSON file
+4. Plugin validates and imports with fresh progress
+5. Customize settings after import if needed
+
+### Tips for AI Generation
+
+- **Vary prompt length**: Mix short and detailed prompts
+- **Include context**: Add helpful descriptions in metadata
+- **Consider progression**: For sequential packs, build complexity gradually
+- **Test your output**: Import generated packs to verify they work
+- **Use meaningful names**: Clear, descriptive pack names help users
+- **Add tags**: Help users categorize and find packs
+
 ## 🛠️ Development
 
 ### Building from Source
