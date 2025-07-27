@@ -34,7 +34,7 @@ export class Prompt implements IPrompt {
   order?: number;
   metadata?: Record<string, any>;
 
-  constructor(data: Partial<IPrompt> & { content: string }) {
+  constructor(data: Partial<IPrompt> & { content: string }, skipValidation: boolean = false) {
     this.id = data.id || generateId();
     this.content = data.content;
     this.type = data.type || 'string';
@@ -42,7 +42,9 @@ export class Prompt implements IPrompt {
     this.order = data.order;
     this.metadata = data.metadata || {};
 
-    this.validate();
+    if (!skipValidation) {
+      this.validate();
+    }
   }
 
   /**

@@ -426,15 +426,28 @@ export class PromptPackModal extends Modal {
   private addNewPrompt(): void {
     const type = this.typeDropdown.getValue() as PromptPackType;
 
+    // Create prompt with empty content, skipping validation during construction
     const newPrompt = new Prompt({
       content: '',
       type: 'string',
       order: type === 'Sequential' ? this.prompts.length + 1 : undefined,
       date: type === 'Date' ? new Date() : undefined
-    });
+    }, true); // Skip validation during construction
 
     this.prompts.push(newPrompt);
     this.renderPrompts();
+
+    // Focus on the new prompt's content field
+    setTimeout(() => {
+      const promptItems = this.promptsContainer.querySelectorAll('.daily-prompts-prompt-item');
+      const newPromptItem = promptItems[promptItems.length - 1];
+      const contentField = newPromptItem?.querySelector('.daily-prompts-prompt-content-field') as HTMLInputElement | HTMLTextAreaElement;
+
+      if (contentField) {
+        contentField.focus();
+        contentField.placeholder = 'Enter your prompt here...';
+      }
+    }, 50);
   }
 
   /**
@@ -516,12 +529,20 @@ export class PromptPackModal extends Modal {
    * Validate the form
    */
   private validateForm(): boolean {
+    return this.getValidationErrors().length === 0;
+  }
+
+  /**
+   * Get detailed validation errors
+   */
+  private getValidationErrors(): string[] {
+    const errors: string[] = [];
     const name = this.nameInput.getValue().trim();
     const notificationTime = this.notificationTimeInput.getValue();
 
     // Validate name
     if (!name) {
-      return false;
+      errors.push('Pack name is required');
     }
 
     // Check for duplicate names (except when editing the same pack)
@@ -529,42 +550,45 @@ export class PromptPackModal extends Modal {
       p.name === name && (!this.pack || p.id !== this.pack.id)
     );
     if (existingPack) {
-      return false;
+      errors.push(`A pack named "${name}" already exists`);
     }
 
     // Validate notification time format
     if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(notificationTime)) {
-      return false;
+      errors.push('Notification time must be in HH:MM format (e.g., 09:00)');
     }
 
     // Validate prompts
     if (this.prompts.length === 0) {
-      return false;
+      errors.push('At least one prompt is required');
     }
 
     // Type-specific validation
     const type = this.typeDropdown.getValue() as PromptPackType;
     if (type === 'Date') {
       // All prompts must have dates
-      if (this.prompts.some(p => !p.date)) {
-        return false;
+      const promptsWithoutDates = this.prompts.filter(p => !p.date);
+      if (promptsWithoutDates.length > 0) {
+        errors.push(`${promptsWithoutDates.length} prompt(s) missing dates (required for Date mode)`);
       }
     }
 
     // All prompts must have content
-    if (this.prompts.some(p => !p.content.trim())) {
-      return false;
+    const emptyPrompts = this.prompts.filter(p => !p.content.trim());
+    if (emptyPrompts.length > 0) {
+      errors.push(`${emptyPrompts.length} prompt(s) have empty content`);
     }
 
-    return true;
+    return errors;
   }
 
   /**
    * Save the prompt pack
    */
   private async savePack(): Promise<void> {
-    if (!this.validateForm()) {
-      new Notice('Please fix validation errors before saving');
+    const validationResult = this.getValidationErrors();
+    if (validationResult.length > 0) {
+      new Notice(`Please fix the following issues:\n${validationResult.join('\n')}`, 8000);
       return;
     }
 
@@ -581,11 +605,24 @@ export class PromptPackModal extends Modal {
         customTemplate: this.customTemplateInput.getValue() || undefined
       });
 
+      // Validate all prompts before saving
+      const validatedPrompts = this.prompts.map(prompt => {
+        // Create a new prompt with validation to ensure it's valid
+        return new Prompt({
+          id: prompt.id,
+          content: prompt.content,
+          type: prompt.type,
+          date: prompt.date,
+          order: prompt.order,
+          metadata: prompt.metadata
+        }); // This will validate the prompt
+      });
+
       if (this.isEditing && this.pack) {
         // Update existing pack
         this.pack.name = name;
         this.pack.type = type;
-        this.pack.prompts = [...this.prompts];
+        this.pack.prompts = validatedPrompts;
         this.pack.settings = settings;
         this.pack.updatedAt = new Date();
 
@@ -596,7 +633,7 @@ export class PromptPackModal extends Modal {
         const newPack = new PromptPack({
           name,
           type,
-          prompts: [...this.prompts],
+          prompts: validatedPrompts,
           settings
         });
 

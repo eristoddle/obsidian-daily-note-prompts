@@ -128,9 +128,11 @@ export class StorageManager {
         await this.plugin.saveData(dataToSave);
 
         // Performance optimization: Update cache
+        const dataHash = this.hashObject(data);
         this.dataCache = {
           data: data, // Store uncompressed data in cache
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          hash: dataHash
         };
 
         return; // Success

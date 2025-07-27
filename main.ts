@@ -430,63 +430,7 @@ If the problem persists, please report this issue.
     }
   }
 
-  /**
-   * Get plugin health status for debugging
-   */
-  getPluginHealth(): {
-    initialized: boolean;
-    error: string | null;
-    services: {
-      settingsManager: boolean;
-      promptService: boolean;
-      dailyNoteService: boolean;
-      notificationService: boolean;
-      importExportService: boolean;
-      progressStore: boolean;
-    };
-    stats: any;
-  } {
-    try {
-      const services = {
-        settingsManager: !!this.settingsManager,
-        promptService: !!this.promptService,
-        dailyNoteService: !!this.dailyNoteService,
-        notificationService: !!this.notificationService,
-        importExportService: !!this.importExportService,
-        progressStore: !!this.progressStore
-      };
 
-      let stats = null;
-      if (this.settingsManager && this.isInitialized) {
-        try {
-          stats = this.settingsManager.getSettingsStats();
-        } catch (error) {
-          stats = { error: error.message };
-        }
-      }
-
-      return {
-        initialized: this.isInitialized,
-        error: this.initializationError?.message || null,
-        services,
-        stats
-      };
-    } catch (error) {
-      return {
-        initialized: false,
-        error: `Failed to get health status: ${error.message}`,
-        services: {
-          settingsManager: false,
-          promptService: false,
-          dailyNoteService: false,
-          notificationService: false,
-          importExportService: false,
-          progressStore: false
-        },
-        stats: null
-      };
-    }
-  }
 
   private registerCommands() {
     // Core plugin commands (Task 10.1)
@@ -936,43 +880,7 @@ If the problem persists, please report this issue.
     }
   }
 
-  /**
-   * Show plugin health status for debugging
-   */
-  private showPluginHealthStatus() {
-    try {
-      const health = this.getPluginHealth();
 
-      const statusMessage = `
-Daily Prompts Plugin Health Status:
-
-Initialized: ${health.initialized ? '✅' : '❌'}
-Error: ${health.error || 'None'}
-
-Services:
-- Settings Manager: ${health.services.settingsManager ? '✅' : '❌'}
-- Prompt Service: ${health.services.promptService ? '✅' : '❌'}
-- Daily Note Service: ${health.services.dailyNoteService ? '✅' : '❌'}
-- Notification Service: ${health.services.notificationService ? '✅' : '❌'}
-- Import/Export Service: ${health.services.importExportService ? '✅' : '❌'}
-- Progress Store: ${health.services.progressStore ? '✅' : '❌'}
-
-${health.stats ? `
-Statistics:
-- Total Packs: ${health.stats.totalPacks}
-- Total Prompts: ${health.stats.totalPrompts}
-- Completed Prompts: ${health.stats.completedPrompts}
-- Overall Progress: ${health.stats.overallProgress}%
-` : ''}
-      `.trim();
-
-      new Notice(statusMessage, 10000);
-      console.log('Daily Prompts Health Status:', health);
-    } catch (error) {
-      console.error('Failed to show plugin health status:', error);
-      new Notice(`Failed to show plugin health status: ${error.message}`);
-    }
-  }
 
   /**
    * Show performance report
