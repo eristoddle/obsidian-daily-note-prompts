@@ -430,26 +430,23 @@ export class DailyPromptsSettingsTab extends PluginSettingTab {
    */
   private async exportPromptPack(pack: PromptPack): Promise<void> {
     try {
-      const exportData = {
-        version: '1.0.0',
-        pack: pack.toJSON(),
-        metadata: {
-          exportedAt: new Date().toISOString(),
-          exportedBy: 'Daily Prompts Plugin v1.0.0'
-        }
-      };
+      // Use the import/export service to create a clean sharing export
+      const { ImportExportService } = await import('./import-export-service');
+      const exportService = new ImportExportService(this.app.vault);
 
-      const jsonString = JSON.stringify(exportData, null, 2);
+      // Export for sharing (removes all personal data)
+      const jsonString = await exportService.exportPackForSharing(pack);
+
       const blob = new Blob([jsonString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
 
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${pack.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.json`;
+      a.download = `${pack.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_shared.json`;
       a.click();
 
       URL.revokeObjectURL(url);
-      this.showSuccess(`Exported "${pack.name}"`);
+      this.showSuccess(`Exported "${pack.name}" for sharing (personal data excluded)`);
     } catch (error) {
       this.showError(`Failed to export pack: ${error.message}`);
     }

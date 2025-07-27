@@ -141,6 +141,67 @@ export class ImportExportService implements IImportExportService {
   }
 
   /**
+   * Export a prompt pack for sharing (removes all personal data)
+   */
+  async exportPackForSharing(pack: PromptPack): Promise<string> {
+    try {
+      // Validate the pack before export
+      pack.validate();
+
+      // Create a clean export with only shareable content
+      const shareableData = {
+        version: this.CURRENT_VERSION,
+        type: 'shared-prompt-pack',
+        pack: {
+          name: pack.name,
+          type: pack.type,
+          prompts: pack.prompts.map(prompt => ({
+            content: prompt.content,
+            type: prompt.type,
+            date: prompt.date?.toISOString(),
+            order: prompt.order,
+            // Remove prompt IDs to avoid conflicts
+            metadata: prompt.metadata ? {
+              // Only include non-personal metadata
+              description: prompt.metadata.description,
+              tags: prompt.metadata.tags,
+              category: prompt.metadata.category
+            } : {}
+          })),
+          // Provide sensible defaults for settings
+          defaultSettings: {
+            notificationEnabled: false,
+            notificationTime: '09:00',
+            notificationType: 'obsidian',
+            zenModeEnabled: false,
+            dailyNoteIntegration: true
+          },
+          // Include only shareable metadata
+          metadata: {
+            description: pack.metadata?.description,
+            tags: pack.metadata?.tags,
+            category: pack.metadata?.category,
+            author: pack.metadata?.author,
+            version: pack.metadata?.version || '1.0.0',
+            promptCount: pack.prompts.length,
+            packType: pack.type
+          }
+        },
+        shareMetadata: {
+          exportedAt: new Date().toISOString(),
+          exportedBy: `${this.PLUGIN_NAME} v${this.CURRENT_VERSION}`,
+          exportType: 'sharing',
+          note: 'This export contains only prompt content and excludes personal settings and progress data.'
+        }
+      };
+
+      return JSON.stringify(shareableData, null, 2);
+    } catch (error) {
+      throw new Error(`Failed to export pack for sharing: ${error.message}`);
+    }
+  }
+
+  /**
    * Import a prompt pack from JSON data
    */
   async importPack(jsonData: string, options: ImportOptions = {}): Promise<PromptPack> {
@@ -308,13 +369,56 @@ export class ImportExportService implements IImportExportService {
   private preparePackForExport(pack: PromptPack, options: ExportOptions): any {
     const packData = pack.toJSON();
 
-    // Optionally exclude progress data
+    // Always reset progress data for sharing (personal data)
     if (!options.includeProgress) {
       packData.progress = {
         completedPrompts: [],
         lastAccessDate: new Date().toISOString()
       };
     }
+
+    // Clean up personal settings for sharing
+    if (packData.settings) {
+      // Keep the pack structure but reset personal preferences to defaults
+      packData.settings = {
+        ...packData.settings,
+        notificationEnabled: false, // Let the importer decide
+        notificationTime: '09:00', // Default time
+        notificationType: 'obsidian', // Safe default
+        zenModeEnabled: false, // Let the importer decide
+        dailyNoteIntegration: true, // Generally useful default
+        customTemplate: undefined // Remove personal templates
+      };
+    }
+
+    // Remove personal metadata
+    if (packData.metadata) {
+      // Keep only non-personal metadata
+      const cleanMetadata: any = {};
+
+      // Keep these if they exist and are not personal
+      if (packData.metadata.description) {
+        cleanMetadata.description = packData.metadata.description;
+      }
+      if (packData.metadata.tags) {
+        cleanMetadata.tags = packData.metadata.tags;
+      }
+      if (packData.metadata.category) {
+        cleanMetadata.category = packData.metadata.category;
+      }
+      if (packData.metadata.author && typeof packData.metadata.author === 'string') {
+        cleanMetadata.author = packData.metadata.author;
+      }
+      if (packData.metadata.version) {
+        cleanMetadata.version = packData.metadata.version;
+      }
+
+      packData.metadata = Object.keys(cleanMetadata).length > 0 ? cleanMetadata : {};
+    }
+
+    // Reset timestamps to export time
+    packData.createdAt = new Date().toISOString();
+    packData.updatedAt = new Date().toISOString();
 
     return packData;
   }
@@ -534,11 +638,25 @@ export class ImportExportService implements IImportExportService {
       packData.name = options.conflictResolution.newName;
     }
 
-    // Reset progress if not preserving it
-    if (!options.preserveIds) {
-      packData.progress = {
-        completedPrompts: [],
-        lastAccessDate: new Date().toISOString()
+    // Always reset progress for imported packs (start fresh)
+    packData.progress = {
+      completedPrompts: [],
+      lastAccessDate: new Date().toISOString()
+    };
+
+    // Apply user's global settings to imported pack settings
+    if (packData.settings) {
+      // Keep the pack's content-related settings but apply user preferences for personal settings
+      // This allows users to import packs with their own notification preferences
+      packData.settings = {
+        ...packData.settings,
+        // These will be set to user's preferences or safe defaults
+        notificationEnabled: packData.settings.notificationEnabled || false,
+        notificationTime: packData.settings.notificationTime || '09:00',
+        notificationType: packData.settings.notificationType || 'obsidian',
+        zenModeEnabled: packData.settings.zenModeEnabled || false,
+        dailyNoteIntegration: packData.settings.dailyNoteIntegration !== false, // Default to true
+        customTemplate: undefined // Always remove custom templates on import
       };
     }
 
