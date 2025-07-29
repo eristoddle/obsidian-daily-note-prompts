@@ -179,6 +179,9 @@ export class DailyNoteService implements IDailyNoteService {
       }
 
       this.zenModeState.isActive = true;
+
+      // Log instructions for exiting zen mode
+      console.log('Daily Prompts: Zen mode enabled. Use Command Palette (Ctrl/Cmd+P) and search for "Disable Zen Mode" to exit.');
     } catch (error) {
       if (this.errorHandler && context) {
         this.errorHandler.handleError(error as Error, context, {
@@ -240,6 +243,8 @@ export class DailyNoteService implements IDailyNoteService {
         console.warn('Failed to remove zen mode styles:', styleError);
       }
 
+
+
       this.zenModeState.isActive = false;
     } catch (error) {
       if (this.errorHandler && context) {
@@ -271,6 +276,64 @@ export class DailyNoteService implements IDailyNoteService {
    */
   updateGlobalSettings(globalSettings: GlobalSettings): void {
     this.globalSettings = globalSettings;
+  }
+
+
+
+  /**
+   * Add custom CSS styles for zen mode
+   */
+  private addZenModeStyles(): void {
+    const styleId = 'daily-prompts-zen-mode-styles';
+
+    // Remove existing styles if any
+    const existingStyle = document.getElementById(styleId);
+    if (existingStyle) {
+      existingStyle.remove();
+    }
+
+    // Create style element
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      /* Hide additional UI elements in zen mode */
+      .daily-prompts-zen-mode .status-bar {
+        display: none !important;
+      }
+
+      .daily-prompts-zen-mode .titlebar {
+        display: none !important;
+      }
+
+      /* Add a subtle exit hint in the corner */
+      .daily-prompts-zen-mode::after {
+        content: "Zen Mode - Ctrl/Cmd+P → 'Disable Zen Mode' to exit";
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 3px;
+        font-size: 11px;
+        z-index: 1000;
+        pointer-events: none;
+        opacity: 0.7;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  /**
+   * Remove custom CSS styles for zen mode
+   */
+  private removeZenModeStyles(): void {
+    const styleId = 'daily-prompts-zen-mode-styles';
+    const existingStyle = document.getElementById(styleId);
+    if (existingStyle) {
+      existingStyle.remove();
+    }
   }
 
   // Private helper methods

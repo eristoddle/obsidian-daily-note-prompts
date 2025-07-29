@@ -477,6 +477,25 @@ If the problem persists, please report this issue.
       callback: () => this.resetPromptPackProgress()
     });
 
+    // Zen mode commands
+    this.addCommand({
+      id: 'enable-zen-mode',
+      name: 'Enable Zen Mode',
+      callback: () => this.enableZenMode()
+    });
+
+    this.addCommand({
+      id: 'disable-zen-mode',
+      name: 'Disable Zen Mode',
+      callback: () => this.disableZenMode()
+    });
+
+    this.addCommand({
+      id: 'toggle-zen-mode',
+      name: 'Toggle Zen Mode',
+      callback: () => this.toggleZenMode()
+    });
+
     // Debug command for plugin health
     this.addCommand({
       id: 'show-plugin-health',
@@ -877,6 +896,88 @@ If the problem persists, please report this issue.
     } catch (error) {
       console.error('Failed to reset prompt pack progress:', error);
       new Notice(`Failed to reset prompt pack progress: ${error.message}`);
+    }
+  }
+
+  // Command handlers for zen mode
+
+  /**
+   * Enable zen mode for focused writing
+   */
+  private enableZenMode() {
+    try {
+      if (!this.isPluginInitialized()) {
+        new Notice('Daily Prompts plugin is not properly initialized. Check console for errors.');
+        return;
+      }
+
+      if (!this.dailyNoteService) {
+        new Notice('Daily note service not available.');
+        return;
+      }
+
+      this.dailyNoteService.enableZenMode();
+      new Notice('Zen mode enabled. Use "Disable Zen Mode" command to exit.');
+
+    } catch (error) {
+      console.error('Failed to enable zen mode:', error);
+      new Notice(`Failed to enable zen mode: ${error.message}`);
+    }
+  }
+
+  /**
+   * Disable zen mode and restore normal UI
+   */
+  private disableZenMode() {
+    try {
+      if (!this.isPluginInitialized()) {
+        new Notice('Daily Prompts plugin is not properly initialized. Check console for errors.');
+        return;
+      }
+
+      if (!this.dailyNoteService) {
+        new Notice('Daily note service not available.');
+        return;
+      }
+
+      this.dailyNoteService.disableZenMode();
+      new Notice('Zen mode disabled.');
+
+    } catch (error) {
+      console.error('Failed to disable zen mode:', error);
+      new Notice(`Failed to disable zen mode: ${error.message}`);
+    }
+  }
+
+  /**
+   * Toggle zen mode on/off
+   */
+  private toggleZenMode() {
+    try {
+      if (!this.isPluginInitialized()) {
+        new Notice('Daily Prompts plugin is not properly initialized. Check console for errors.');
+        return;
+      }
+
+      if (!this.dailyNoteService) {
+        new Notice('Daily note service not available.');
+        return;
+      }
+
+      // Check if zen mode is currently active
+      const isZenModeActive = this.dailyNoteService.isZenModeActive();
+
+      if (isZenModeActive) {
+        this.dailyNoteService.disableZenMode();
+        new Notice('Zen mode disabled.');
+      } else {
+        this.dailyNoteService.enableZenMode();
+        new Notice('Zen mode enabled.');
+      }
+
+    } catch (error) {
+      console.error('Failed to toggle zen mode:', error);
+      new Notice(`Failed to toggle zen mode: ${error.message}`);
     }
   }
 

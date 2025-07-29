@@ -174,8 +174,16 @@ This guide helps you resolve common issues with the Daily Prompts plugin for Obs
 - Zen mode doesn't activate
 - UI elements not hiding properly
 - Zen mode doesn't restore after prompt session
+- Stuck in zen mode and can't get out
 
 #### Solutions
+
+**Exiting Zen Mode**
+1. **Press Escape Key**: Simply press `ESC` to exit zen mode (easiest method)
+2. **Use Command Palette**: Press `Ctrl/Cmd+P` and search for "Disable Zen Mode"
+3. **Toggle Command**: Use "Toggle Zen Mode" command to switch it off
+4. **Alternative**: Use "Daily Prompts: Disable Zen Mode" command
+5. **Emergency Exit**: If commands don't work, restart Obsidian
 
 **Check Workspace API**
 1. Ensure Obsidian workspace API is available
@@ -183,9 +191,13 @@ This guide helps you resolve common issues with the Daily Prompts plugin for Obs
 3. Check console for workspace-related errors
 
 **Manual Control**
-1. Disable zen mode in pack settings temporarily
-2. Test prompt functionality without zen mode
-3. Re-enable zen mode after confirming other features work
+1. Use the new zen mode commands for better control:
+   - "Enable Zen Mode" - Turn on zen mode manually
+   - "Disable Zen Mode" - Turn off zen mode manually
+   - "Toggle Zen Mode" - Switch zen mode on/off
+2. Disable zen mode in pack settings temporarily
+3. Test prompt functionality without zen mode
+4. Re-enable zen mode after confirming other features work
 
 **UI Conflicts**
 1. Check for conflicts with theme or other plugins

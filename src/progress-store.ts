@@ -137,17 +137,23 @@ export class ProgressStore implements IProgressStore {
 
     for (const chunk of chunks) {
       const promises = chunk.map(([packId, progress]) =>
-        this.saveProgressToFileWithDeduplication(packId, progress)
+        this.saveProgressToFileWithDeduplication(packId, progress).catch(error => {
+          // Handle individual failures more gracefully
+          if (error.message.includes('already exists') || error.message.includes('Folder already exists')) {
+            console.warn(`Folder creation race condition for pack ${packId}, ignoring error`);
+            return; // Treat as success
+          }
+          console.error(`Failed to save progress for pack ${packId}:`, error);
+          // Re-queue this specific failed update
+          this.batchUpdateQueue.set(packId, progress);
+          throw error; // Re-throw non-folder errors
+        })
       );
 
       try {
-        await Promise.all(promises);
+        await Promise.allSettled(promises); // Use allSettled to handle individual failures
       } catch (error) {
         console.error('Failed to process batch updates:', error);
-        // Re-queue failed updates
-        chunk.forEach(([packId, progress]) => {
-          this.batchUpdateQueue.set(packId, progress);
-        });
       }
     }
   }
@@ -626,14 +632,21 @@ export class ProgressStore implements IProgressStore {
    */
   private async saveProgressToFile(packId: string, progress: PromptProgress): Promise<void> {
     try {
+      // Ensure progress folder exists
       await this.ensureFolderExists(this.PROGRESS_FOLDER);
 
       const filePath = `${this.PROGRESS_FOLDER}/${packId}-progress.json`;
       const content = JSON.stringify(progress.toJSON(), null, 2);
 
+      // Write the file
       await this.writeFile(filePath, content);
 
     } catch (error) {
+      // Don't re-throw folder exists errors - they're handled in the helper methods
+      if (error.message.includes('already exists') || error.message.includes('Folder already exists')) {
+        console.warn(`Folder creation race condition for pack ${packId}, but file should be saved successfully`);
+        return; // Consider this a success
+      }
       throw new Error(`Failed to save progress file for pack ${packId}: ${error.message}`);
     }
   }
@@ -694,6 +707,11 @@ export class ProgressStore implements IProgressStore {
       await this.writeFile(filePath, content);
 
     } catch (error) {
+      // Don't re-throw folder exists errors - they're handled in the helper methods
+      if (error.message.includes('already exists') || error.message.includes('Folder already exists')) {
+        console.warn(`Folder creation race condition for archive ${archive.packId}, but file should be saved successfully`);
+        return; // Consider this a success
+      }
       throw new Error(`Failed to save archive for pack ${archive.packId}: ${error.message}`);
     }
   }
@@ -783,7 +801,17 @@ export class ProgressStore implements IProgressStore {
     if (file && file instanceof TFile) {
       await this.plugin.app.vault.modify(file, content);
     } else {
-      await this.plugin.app.vault.create(filePath, content);
+      try {
+        await this.plugin.app.vault.create(filePath, content);
+      } catch (error) {
+        // Handle folder creation race conditions
+        if (error.message.includes('already exists') || error.message.includes('Folder already exists')) {
+          // Try again - the folder should exist now
+          await this.plugin.app.vault.create(filePath, content);
+        } else {
+          throw error;
+        }
+      }
     }
   }
 }

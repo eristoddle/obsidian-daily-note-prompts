@@ -132,6 +132,7 @@ September 22: Fall Equinox - What are you ready to release?
 #### Zen Mode
 - **Customizable UI hiding**: Choose which elements to hide
 - **Automatic activation**: Enable zen mode when prompts open
+- **Easy exit**: Press Escape key to exit zen mode anytime
 - **Restoration**: Automatic UI restoration when done
 
 ### Command Palette Integration
@@ -145,6 +146,9 @@ September 22: Fall Equinox - What are you ready to release?
 | Mark Current Prompt Complete | Mark prompt as done | `Ctrl/Cmd+P` → "Mark Current Prompt Complete" |
 | Skip to Next Prompt | Move to next prompt | `Ctrl/Cmd+P` → "Skip to Next Prompt" |
 | Reset Prompt Pack Progress | Start pack over | `Ctrl/Cmd+P` → "Reset Prompt Pack Progress" |
+| Enable Zen Mode | Hide UI for focused writing | `Ctrl/Cmd+P` → "Enable Zen Mode" |
+| Disable Zen Mode | Restore normal UI | `Ctrl/Cmd+P` → "Disable Zen Mode" |
+| Toggle Zen Mode | Switch zen mode on/off | `Ctrl/Cmd+P` → "Toggle Zen Mode" |
 | Show Performance Report | View performance metrics | `Ctrl/Cmd+P` → "Show Performance Report" |
 
 ## 🔧 Troubleshooting
