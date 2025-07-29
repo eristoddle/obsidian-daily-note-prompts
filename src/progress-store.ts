@@ -642,11 +642,6 @@ export class ProgressStore implements IProgressStore {
       await this.writeFile(filePath, content);
 
     } catch (error) {
-      // Don't re-throw folder exists errors - they're handled in the helper methods
-      if (error.message.includes('already exists') || error.message.includes('Folder already exists')) {
-        console.warn(`Folder creation race condition for pack ${packId}, but file should be saved successfully`);
-        return; // Consider this a success
-      }
       throw new Error(`Failed to save progress file for pack ${packId}: ${error.message}`);
     }
   }
@@ -784,10 +779,14 @@ export class ProgressStore implements IProgressStore {
       try {
         await this.plugin.app.vault.createFolder(folderPath);
       } catch (error) {
-        // Ignore "folder already exists" errors that can occur due to race conditions
-        if (!error.message.includes('already exists') && !error.message.includes('Folder already exists')) {
-          throw error;
+        // Check if folder exists now (race condition)
+        const folderNow = this.plugin.app.vault.getAbstractFileByPath(folderPath);
+        if (folderNow) {
+          // Folder was created by another operation, this is fine
+          return;
         }
+        // If folder still doesn't exist, this is a real error
+        throw error;
       }
     }
   }
@@ -801,17 +800,7 @@ export class ProgressStore implements IProgressStore {
     if (file && file instanceof TFile) {
       await this.plugin.app.vault.modify(file, content);
     } else {
-      try {
-        await this.plugin.app.vault.create(filePath, content);
-      } catch (error) {
-        // Handle folder creation race conditions
-        if (error.message.includes('already exists') || error.message.includes('Folder already exists')) {
-          // Try again - the folder should exist now
-          await this.plugin.app.vault.create(filePath, content);
-        } else {
-          throw error;
-        }
-      }
+      await this.plugin.app.vault.create(filePath, content);
     }
   }
 }

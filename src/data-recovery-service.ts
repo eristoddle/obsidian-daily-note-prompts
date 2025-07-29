@@ -3,7 +3,7 @@
  * Provides comprehensive data recovery, validation, and repair capabilities
  */
 
-import { Plugin, Notice } from 'obsidian';
+import { Plugin, Notice, TFile } from 'obsidian';
 import { StorageManager } from './storage-manager';
 import { PluginSettings, PromptPack, ValidationError } from './models';
 import { ErrorHandler } from './error-handler';
@@ -690,7 +690,7 @@ export class DataRecoveryService {
             const backupPath = `.obsidian/plugins/daily-prompts/backups/${backup.id}.json`;
             const backupFile = this.plugin.app.vault.getAbstractFileByPath(backupPath);
 
-            if (backupFile) {
+            if (backupFile && backupFile instanceof TFile) {
               const backupContent = await this.plugin.app.vault.read(backupFile);
               const backupData = JSON.parse(backupContent);
 
