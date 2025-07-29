@@ -763,7 +763,14 @@ export class ProgressStore implements IProgressStore {
   private async ensureFolderExists(folderPath: string): Promise<void> {
     const folder = this.plugin.app.vault.getAbstractFileByPath(folderPath);
     if (!folder) {
-      await this.plugin.app.vault.createFolder(folderPath);
+      try {
+        await this.plugin.app.vault.createFolder(folderPath);
+      } catch (error) {
+        // Ignore "folder already exists" errors that can occur due to race conditions
+        if (!error.message.includes('already exists') && !error.message.includes('Folder already exists')) {
+          throw error;
+        }
+      }
     }
   }
 

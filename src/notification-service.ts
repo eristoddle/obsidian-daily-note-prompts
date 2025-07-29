@@ -600,11 +600,8 @@ export class NotificationService implements INotificationService {
         body,
         icon,
         tag: `daily-prompt-${pack.id}`, // Prevent duplicate notifications
-        requireInteraction: true, // Keep notification visible until user interacts
-        actions: [
-          { action: 'open', title: 'Open Prompt' },
-          { action: 'dismiss', title: 'Dismiss' }
-        ]
+        requireInteraction: true // Keep notification visible until user interacts
+        // Note: actions are only supported for Service Worker notifications, not regular notifications
       });
 
       // Handle notification click
@@ -613,15 +610,8 @@ export class NotificationService implements INotificationService {
         notification.close();
       };
 
-      // Handle notification actions (if supported)
-      if ('addEventListener' in notification) {
-        notification.addEventListener('notificationclick', (event: any) => {
-          if (event.action === 'open') {
-            this.handleNotificationClick(prompt, pack);
-          }
-          notification.close();
-        });
-      }
+      // Note: Action buttons are not supported for regular notifications
+      // Only the main click handler will work
 
       // Handle notification errors
       notification.onerror = (error) => {

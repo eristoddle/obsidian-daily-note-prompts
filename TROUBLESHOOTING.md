@@ -22,6 +22,7 @@ This guide helps you resolve common issues with the Daily Prompts plugin for Obs
 - No notifications appear at scheduled times
 - Notifications appear but don't open prompts when clicked
 - System notifications not working
+- Console errors about notification actions or permissions
 
 #### Solutions
 
@@ -40,6 +41,18 @@ This guide helps you resolve common issues with the Daily Prompts plugin for Obs
 1. Use "Open Today's Prompt" command to test functionality
 2. Check console for error messages (Developer Tools → Console)
 3. Try creating a new test pack with simple settings
+
+**Common Console Errors and Fixes**
+
+*Error: "Actions are only supported for persistent notifications"*
+- This is a browser limitation - action buttons don't work in regular notifications
+- The plugin automatically falls back to Obsidian notifications
+- Click the notification itself to open the prompt (action buttons are not available)
+
+*Error: "Notification permission denied"*
+- Enable notifications in your browser settings for Obsidian
+- Try switching to "obsidian" notification type in pack settings
+- Restart Obsidian to refresh permissions
 
 **Fallback Options**
 - Switch notification type from "system" to "obsidian"
@@ -129,6 +142,7 @@ This guide helps you resolve common issues with the Daily Prompts plugin for Obs
 - Plugin fails to load
 - Prompt packs missing or corrupted
 - Settings reset to defaults
+- Console errors about "Folder already exists"
 
 #### Solutions
 
@@ -146,6 +160,13 @@ This guide helps you resolve common issues with the Daily Prompts plugin for Obs
 1. Run "Daily Prompts: Validate Plugin Data" command
 2. Fix validation issues reported
 3. Recreate corrupted prompt packs if necessary
+
+**File System Issues**
+
+*Error: "Folder already exists" in progress saving*
+- This is usually a race condition when multiple operations try to create folders
+- The plugin now handles this automatically - restart Obsidian if it persists
+- If the error continues, try "Daily Prompts: Optimize Performance" to clear caches
 
 ### 6. Zen Mode Issues
 
