@@ -35,8 +35,8 @@ export class ProgressStore implements IProgressStore {
   private plugin: Plugin;
   private storageManager: StorageManager;
   private progressCache: Map<string, PromptProgress> = new Map();
-  private readonly PROGRESS_FOLDER = '.obsidian/plugins/daily-prompts/progress';
-  private readonly ARCHIVE_FOLDER = '.obsidian/plugins/daily-prompts/archives';
+  private readonly PROGRESS_FOLDER = '.obsidian/plugins/obsidian-daily-prompts/progress';
+  private readonly ARCHIVE_FOLDER = '.obsidian/plugins/obsidian-daily-prompts/archives';
 
   // Performance optimizations
   private batchUpdateQueue: Map<string, PromptProgress> = new Map();
