@@ -43,14 +43,40 @@ A comprehensive and flexible system for receiving daily writing prompts, reflect
 
 ### Installation
 
-1. **From Obsidian Community Plugins** (Recommended)
-   - Open Settings → Community Plugins
-   - Search for "Daily Prompts"
-   - Install and enable the plugin
+> **Note**: This plugin is currently in development and not yet available in the Obsidian Community Plugin store. It will be submitted for community review once it reaches stable release status.
 
-2. **Manual Installation**
-   - Download the latest release from GitHub
-   - Extract to `.obsidian/plugins/daily-prompts/`
+#### Option 1: BRAT Plugin (Recommended for Beta Testing)
+
+The easiest way to install and test this plugin is using the BRAT (Beta Reviewer's Auto-update Tool) plugin:
+
+1. **Install BRAT**
+   - Open Settings → Community Plugins
+   - Search for "BRAT" and install it
+   - Enable the BRAT plugin
+
+2. **Add This Plugin via BRAT**
+   - Open Settings → BRAT
+   - Click "Add Beta Plugin"
+   - Enter the repository URL: `https://github.com/your-username/obsidian-daily-prompts`
+   - Click "Add Plugin"
+   - BRAT will automatically download and install the plugin
+
+3. **Enable the Plugin**
+   - Go to Settings → Community Plugins
+   - Find "Daily Prompts" and enable it
+
+BRAT will automatically check for updates and notify you when new versions are available.
+
+#### Option 2: Manual Installation
+
+1. **Download the Latest Release**
+   - Go to the [Releases page](https://github.com/your-username/obsidian-daily-prompts/releases)
+   - Download the latest `main.js`, `manifest.json`, and `styles.css` files
+
+2. **Install in Your Vault**
+   - Create folder: `.obsidian/plugins/daily-prompts/`
+   - Copy the downloaded files into this folder
+   - Restart Obsidian or reload plugins
    - Enable in Settings → Community Plugins
 
 ### First Steps
