@@ -1,6 +1,6 @@
 {
   "name": "obsidian-daily-prompts",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A flexible system for receiving daily writing prompts, reflections, or devotionals within Obsidian",
   "main": "main.js",
   "scripts": {
